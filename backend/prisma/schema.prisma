@@ -1,0 +1,61 @@
+// 1. Configuração do Banco de Dados
+datasource db {
+  provider = "sqlite" 
+  url      = env("DATABASE_URL") // Pega a URL do arquivo .env
+}
+
+// 2. Gerador do Cliente Prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+// 3. Modelos de Dados (Nossas Tabelas)
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  password     String
+  role         String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  managedUnits Unit[]    @relation("CoordinatorUnits")
+  requests     Request[]
+}
+
+model Unit {
+  id            String    @id @default(cuid())
+  name          String    @unique
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  coordinatorId String?
+  coordinator   User?     @relation("CoordinatorUnits", fields: [coordinatorId], references: [id])
+  items         Item[]
+  requests      Request[]
+}
+
+model Item {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  quantity    Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  unitId      String
+  unit        Unit      @relation(fields: [unitId], references: [id])
+  requests    Request[]
+}
+
+model Request {
+  id          String        @id @default(cuid())
+  quantity    Int
+  status      String @default("SOLICITADO")
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  itemId      String
+  item        Item          @relation(fields: [itemId], references: [id])
+  unitId      String
+  unit        Unit          @relation(fields: [unitId], references: [id])
+  requesterId String
+  requester   User          @relation(fields: [requesterId], references: [id])
+}
