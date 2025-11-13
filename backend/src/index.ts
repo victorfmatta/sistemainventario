@@ -1,33 +1,24 @@
 import express from 'express';
-import type { Request, Response } from 'express';
 import cors from 'cors';
-
-// 1. Importar os arquivos de rota
 import authRoutes from './routes/auth.routes';
-import unitRoutes from './routes/units.routes';
-import itemRoutes from './routes/itens.routes'; // <-- NOVA IMPORTAÇÃO
+import unitsRoutes from './routes/units.routes';
+import itemsRoutes from './routes/items.routes';
+import requestsRoutes from './routes/requests.routes';
+import usersRoutes from './routes/users.routes'; // 1. Importar a nova rota
 
-// Cria uma instância do aplicativo Express
 const app = express();
-
-// Define a porta em que o servidor vai rodar
 const PORT = 3001;
 
-// Middlewares Globais
 app.use(cors());
 app.use(express.json());
 
-// Rota de teste
-app.get('/api', (req: Request, res: Response) => {
-  res.json({ message: 'Olá! O servidor do inventário está no ar!' });
-});
-
-// 2. Registrar as rotas da aplicação
+// Rotas da aplicação
 app.use('/api/auth', authRoutes);
-app.use('/api/units', unitRoutes);
-app.use('/api/items', itemRoutes); // <-- NOVO REGISTRO DE ROTA
+app.use('/api/units', unitsRoutes);
+app.use('/api/items', itemsRoutes);
+app.use('/api/requests', requestsRoutes);
+app.use('/api/users', usersRoutes); // 2. Adicionar a nova rota
 
-// Inicia o servidor
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta http://localhost:${PORT}` );
 });

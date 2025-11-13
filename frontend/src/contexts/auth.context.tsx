@@ -10,7 +10,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  isLoading: boolean; // <-- NOVO ESTADO
+  isLoading: boolean;
   login: (user: User, token: string) => void;
   logout: () => void;
   isAuthenticated: boolean;
@@ -21,7 +21,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true); // <-- COMEÇA COMO TRUE
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     try {
@@ -33,12 +33,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     } catch (error) {
       console.error("Falha ao carregar dados de autenticação:", error);
-      // Se der erro, limpa para garantir um estado consistente
       localStorage.removeItem('authToken');
       localStorage.removeItem('authUser');
     } finally {
-      // Independentemente do resultado, marca o carregamento como concluído
-      setIsLoading(false); // <-- TERMINA COMO FALSE
+      setIsLoading(false);
     }
   }, []);
 
@@ -59,7 +57,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const value = {
     user,
     token,
-    isLoading, // <-- DISPONIBILIZADO AQUI
+    isLoading,
     login,
     logout,
     isAuthenticated: !!token,

@@ -1,61 +1,86 @@
-// 1. Configuração do Banco de Dados
+// backend/prisma/schema.prisma
+
 datasource db {
-  provider = "sqlite" 
-  url      = env("DATABASE_URL") // Pega a URL do arquivo .env
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
 }
 
-// 2. Gerador do Cliente Prisma
 generator client {
   provider = "prisma-client-js"
 }
-
-// 3. Modelos de Dados (Nossas Tabelas)
 
 model User {
   id           String    @id @default(cuid())
   email        String    @unique
   name         String
   password     String
-  role         String
+  role         String    // DIRETOR, COORDENADOR, INSTRUTOR
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+  
   managedUnits Unit[]    @relation("CoordinatorUnits")
   requests     Request[]
+
+  // --- INÍCIO DA ALTERAÇÃO ---
+  unitId String? // <-- NOVO: Para qual unidade o instrutor trabalha?
+  unit   Unit?   @relation("Instructors", fields: [unitId], references: [id]) // <-- NOVO
+  // --- FIM DA ALTERAÇÃO ---
 }
 
 model Unit {
-  id            String    @id @default(cuid())
-  name          String    @unique
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  coordinatorId String?
-  coordinator   User?     @relation("CoordinatorUnits", fields: [coordinatorId], references: [id])
-  items         Item[]
-  requests      Request[]
+  id             String     @id @default(cuid())
+  name           String     @unique
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  
+  coordinatorId  String?
+  coordinator    User?      @relation("CoordinatorUnits", fields: [coordinatorId], references: [id])
+  
+  // --- INÍCIO DA ALTERAÇÃO ---
+  instructors    User[]     @relation("Instructors") // <-- NOVO: Lista de instrutores nesta unidade
+  // --- FIM DA ALTERAÇÃO ---
+
+  inventoryItems UnitItem[]
+  requests       Request[]
 }
 
 model Item {
-  id          String    @id @default(cuid())
-  name        String
+  id          String     @id @default(cuid())
+  name        String     @unique
   description String?
-  quantity    Int       @default(0)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  unitId      String
-  unit        Unit      @relation(fields: [unitId], references: [id])
+  quantity    Int        @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
   requests    Request[]
+  unitItems   UnitItem[]
+}
+
+model UnitItem {
+  id       String @id @default(cuid())
+  quantity Int
+  unitId   String
+  unit     Unit   @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  itemId   String
+  item     Item   @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([unitId, itemId])
 }
 
 model Request {
-  id          String        @id @default(cuid())
-  quantity    Int
-  status      String @default("SOLICITADO")
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  itemId      String
-  item        Item          @relation(fields: [itemId], references: [id])
-  unitId      String
-  unit        Unit          @relation(fields: [unitId], references: [id])
-  requesterId String
-  requester   User          @relation(fields: [requesterId], references: [id])
+  id            String    @id @default(cuid())
+  quantity      Int
+  status        String    @default("SOLICITADO")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  purpose       String?
+  observation   String?
+  
+  itemId        String
+  item          Item      @relation(fields: [itemId], references: [id])
+  
+  unitId        String
+  unit          Unit      @relation(fields: [unitId], references: [id])
+  
+  requestedById String
+  requestedBy   User      @relation(fields: [requestedById], references: [id])
 }

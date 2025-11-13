@@ -6,10 +6,10 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('Iniciando o processo de seeding...');
 
-  // --- CRIAÇÃO DO USUÁRIO ---
+  // --- CRIAÇÃO DOS USUÁRIOS ---
   const hashedPassword = await bcrypt.hash('senha123', 10);
   
-  // Garante que o usuário diretor sempre exista com a mesma senha
+  // 1. Garante que o usuário DIRETOR sempre exista
   const diretor = await prisma.user.upsert({
     where: { email: 'diretor@email.com' },
     update: { password: hashedPassword },
@@ -24,13 +24,41 @@ async function main() {
 
   // --- INÍCIO DAS ALTERAÇÕES ---
 
+  // 2. Garante que o usuário COORDENADOR sempre exista
+  const coordenador = await prisma.user.upsert({
+    where: { email: 'coordenador@email.com' },
+    update: { password: hashedPassword },
+    create: {
+      email: 'coordenador@email.com',
+      name: 'Coordenador Regional',
+      password: hashedPassword,
+      role: 'COORDENADOR',
+    },
+  });
+  console.log(`Usuário Coordenador garantido: ${coordenador.name}`);
+
+  // 3. Garante que o usuário INSTRUTOR sempre exista
+  const instrutor = await prisma.user.upsert({
+    where: { email: 'instrutor@email.com' },
+    update: { password: hashedPassword },
+    create: {
+      email: 'instrutor@email.com',
+      name: 'Instrutor da Unidade',
+      password: hashedPassword,
+      role: 'INSTRUTOR',
+    },
+  });
+  console.log(`Usuário Instrutor garantido: ${instrutor.name}`);
+
+  // --- FIM DAS ALTERAÇÕES ---
+
+
   // --- CRIAÇÃO DAS UNIDADES ---
   console.log('Criando unidades de exemplo...');
 
-  // Usamos 'upsert' para evitar criar duplicatas se rodarmos o seed várias vezes
   await prisma.unit.upsert({
     where: { name: 'Unidade Centro' },
-    update: {}, // Não faz nada se já existir
+    update: {},
     create: { name: 'Unidade Centro' },
   });
 
@@ -47,8 +75,6 @@ async function main() {
   });
 
   console.log('Unidades de exemplo criadas/verificadas.');
-
-  // --- FIM DAS ALTERAÇÕES ---
 
   console.log('Seed concluído com sucesso!');
 }

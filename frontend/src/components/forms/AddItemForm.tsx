@@ -5,17 +5,18 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { LoaderCircle } from 'lucide-react';
 
-// Definimos os tipos para os dados do formulário e para a função de submissão
+// --- INÍCIO DA REATORAÇÃO ---
+
+// 1. SIMPLIFICAR AS PROPS: REMOVER 'unitId'
 interface AddItemFormProps {
-  unitId: string;
-  onItemAdded: () => void; // Função para ser chamada quando um item for adicionado com sucesso
+  onItemAdded: () => void;
   onCancel: () => void;
   token: string | null;
 }
 
-export const AddItemForm = ({ unitId, onItemAdded, onCancel, token }: AddItemFormProps) => {
+export const AddItemForm = ({ onItemAdded, onCancel, token }: AddItemFormProps) => {
   const [name, setName] = useState('');
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState(0); // A quantidade inicial pode ser 0
   const [description, setDescription] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,8 +26,9 @@ export const AddItemForm = ({ unitId, onItemAdded, onCancel, token }: AddItemFor
     setIsLoading(true);
     setError(null);
 
-    if (!name || quantity <= 0) {
-      setError('Nome e quantidade (maior que zero) são obrigatórios.');
+    // A quantidade pode ser 0, mas o nome é obrigatório
+    if (!name) {
+      setError('O nome do item é obrigatório.');
       setIsLoading(false);
       return;
     }
@@ -38,16 +40,16 @@ export const AddItemForm = ({ unitId, onItemAdded, onCancel, token }: AddItemFor
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
+        // 2. REMOVER 'unitId' DO CORPO DA REQUISIÇÃO
         body: JSON.stringify({
           name,
           description,
           quantity,
-          unitId,
         } ),
       });
 
       if (response.ok) {
-        onItemAdded(); // Sucesso! Chama a função do componente pai
+        onItemAdded();
       } else {
         const data = await response.json();
         setError(data.message || 'Falha ao adicionar o item.');
@@ -67,18 +69,18 @@ export const AddItemForm = ({ unitId, onItemAdded, onCancel, token }: AddItemFor
           id="name"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Ex: Cadeira de Escritório"
+          placeholder="Ex: Notebook Dell Vostro"
           disabled={isLoading}
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="quantity">Quantidade</Label>
+        <Label htmlFor="quantity">Quantidade Inicial em Estoque</Label>
         <Input
           id="quantity"
           type="number"
           value={quantity}
           onChange={(e) => setQuantity(Number(e.target.value))}
-          min="1"
+          min="0" // Permite 0 como quantidade inicial
           disabled={isLoading}
         />
       </div>
@@ -88,7 +90,7 @@ export const AddItemForm = ({ unitId, onItemAdded, onCancel, token }: AddItemFor
           id="description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Ex: Cadeira giratória com ajuste de altura, cor preta"
+          placeholder="Ex: Tela 15.6, 16GB RAM, 512GB SSD"
           disabled={isLoading}
         />
       </div>
@@ -101,9 +103,11 @@ export const AddItemForm = ({ unitId, onItemAdded, onCancel, token }: AddItemFor
         </Button>
         <Button type="submit" disabled={isLoading}>
           {isLoading && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
-          Adicionar Item
+          Adicionar ao Estoque
         </Button>
       </div>
     </form>
   );
 };
+
+// --- FIM DA REATORAÇÃO ---
