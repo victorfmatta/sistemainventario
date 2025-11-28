@@ -15,33 +15,51 @@ const canManageUsers = (req: AuthenticatedRequest, res: any, next: any) => {
   next();
 };
 
-// Rota para LISTAR usuários (Diretor vê todos, Coordenador vê apenas instrutores de suas unidades)
+// Middleware específico para Diretores
+const directorOnly = (req: AuthenticatedRequest, res: any, next: any) => {
+    if (req.user?.role !== 'DIRETOR') {
+      return res.status(403).json({ message: 'Acesso negado. Apenas diretores podem realizar esta ação.' });
+    }
+    next();
+};
+
+// --- INÍCIO DA ALTERAÇÃO ---
+
+// Rota para LISTAR usuários (Diretor vê todos, Coordenador vê instrutores que ele criou ou que já estão em suas unidades)
 router.get('/', authMiddleware, canManageUsers, async (req: AuthenticatedRequest, res) => {
   try {
     const { userId, role } = req.user!;
     let whereClause: Prisma.UserWhereInput = {};
 
-    // --- INÍCIO DA ALTERAÇÃO ---
     if (role === 'COORDENADOR') {
-      // 1. Buscar as IDs das unidades que este coordenador gerencia
+      // Buscar as IDs das unidades que este coordenador gerencia
       const managedUnits = await prisma.unit.findMany({
         where: { coordinatorId: userId },
         select: { id: true },
       });
       const managedUnitIds = managedUnits.map(unit => unit.id);
 
-      // 2. Construir o filtro:
-      //    - O cargo deve ser INSTRUTOR
-      //    - E o unitId do instrutor deve estar na lista de unidades gerenciadas pelo coordenador
+      // Nova regra de negócio:
+      // O Coordenador vê todos os usuários que:
+      // 1. São INSTRUTOR
+      // 2. E satisfazem UMA das seguintes condições (OR):
+      //    a) Foram criados por ele (createdById: userId)
+      //    b) Já estão associados a uma de suas unidades (unitId: { in: managedUnitIds })
       whereClause = {
         role: 'INSTRUTOR',
-        unitId: {
-          in: managedUnitIds,
-        },
+        OR: [
+          {
+            createdById: userId,
+          },
+          {
+            unitId: {
+              in: managedUnitIds,
+            },
+          },
+        ],
       };
     }
     // Se for DIRETOR, o whereClause fica vazio, retornando todos os usuários.
-    // --- FIM DA ALTERAÇÃO ---
 
     const users = await prisma.user.findMany({
       where: whereClause,
@@ -61,10 +79,12 @@ router.get('/', authMiddleware, canManageUsers, async (req: AuthenticatedRequest
   }
 });
 
-// Rota para CRIAR um novo usuário (Diretor cria Coordenador/Instrutor, Coordenador cria apenas Instrutor)
+// --- FIM DA ALTERAÇÃO ---
+
+// Rota para CRIAR um novo usuário
 router.post('/', authMiddleware, canManageUsers, async (req: AuthenticatedRequest, res) => {
   const { name, email, password, role: roleToCreate } = req.body;
-  const creatorRole = req.user!.role;
+  const { role: creatorRole, userId: creatorId } = req.user!;
 
   if (!name || !email || !password || !roleToCreate) {
     return res.status(400).json({ message: 'Todos os campos são obrigatórios.' });
@@ -85,6 +105,7 @@ router.post('/', authMiddleware, canManageUsers, async (req: AuthenticatedReques
         email,
         password: hashedPassword,
         role: roleToCreate,
+        createdById: creatorId,
       },
       select: { id: true, name: true, email: true, role: true }
     });
@@ -96,6 +117,59 @@ router.post('/', authMiddleware, canManageUsers, async (req: AuthenticatedReques
     }
     res.status(500).json({ message: 'Erro ao criar usuário.' });
   }
+});
+
+// Rota para ATUALIZAR um usuário
+router.put('/:id', authMiddleware, directorOnly, async (req: AuthenticatedRequest, res) => {
+    const { id: idToUpdate } = req.params;
+    const { name, email, role: newRole } = req.body;
+    const requesterId = req.user!.userId;
+
+    if (!name && !email && !newRole) {
+        return res.status(400).json({ message: 'Pelo menos um campo (nome, email ou cargo) deve ser fornecido para atualização.' });
+    }
+
+    if (idToUpdate === requesterId && newRole && newRole !== 'DIRETOR') {
+        return res.status(403).json({ message: 'Você não pode alterar seu próprio cargo.' });
+    }
+
+    if (newRole && !['DIRETOR', 'COORDENADOR', 'INSTRUTOR'].includes(newRole)) {
+        return res.status(400).json({ message: 'Cargo inválido.' });
+    }
+
+    try {
+        const updatedUser = await prisma.$transaction(async (tx) => {
+            const currentUser = await tx.user.findUnique({ where: { id: idToUpdate } });
+
+            if (currentUser?.role === 'COORDENADOR' && newRole && newRole !== 'COORDENADOR') {
+                await tx.unit.updateMany({
+                    where: { coordinatorId: idToUpdate },
+                    data: { coordinatorId: null },
+                });
+            }
+
+            const user = await tx.user.update({
+                where: { id: idToUpdate },
+                data: {
+                    name,
+                    email,
+                    role: newRole,
+                },
+                select: { id: true, name: true, email: true, role: true }
+            });
+
+            return user;
+        });
+
+        res.status(200).json(updatedUser);
+    } catch (error) {
+        // @ts-ignore
+        if (error.code === 'P2002') {
+            return res.status(409).json({ message: 'O e-mail fornecido já está em uso por outro usuário.' });
+        }
+        console.error("Erro ao atualizar usuário:", error);
+        res.status(500).json({ message: 'Erro ao atualizar usuário.' });
+    }
 });
 
 // Rota para DELETAR um usuário

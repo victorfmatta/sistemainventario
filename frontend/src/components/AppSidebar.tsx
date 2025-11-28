@@ -8,10 +8,7 @@ const navigationItems = [
   { title: "Minhas Unidades", url: "/dashboard", icon: Building2, roles: ['DIRETOR', 'COORDENADOR', 'INSTRUTOR'] },
   { title: "Solicitações", url: "/requests", icon: FileText, roles: ['DIRETOR', 'COORDENADOR', 'INSTRUTOR'] },
   { title: "Estoque Central", url: "/central-stock", icon: Warehouse, roles: ['DIRETOR'] },
-  // --- INÍCIO DA ALTERAÇÃO ---
-  // Agora, Coordenadores também podem ver este link
   { title: "Administração", url: "/admin", icon: Shield, roles: ['DIRETOR', 'COORDENADOR'] },
-  // --- FIM DA ALTERAÇÃO ---
 ];
 
 export function AppSidebar() {
@@ -19,7 +16,7 @@ export function AppSidebar() {
   const { user, logout } = useAuth();
 
   return (
-    <aside className="w-64 bg-card border-r border-border flex flex-col h-screen sticky top-0">
+    <aside className="w-64 bg-card/60 backdrop-blur-lg border-r border-border flex flex-col h-screen sticky top-0 flex-shrink-0">
       <div className="p-6 border-b border-border">
         <h2 className="text-xl font-bold text-foreground">Inventário</h2>
       </div>

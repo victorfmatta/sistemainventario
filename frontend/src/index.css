@@ -8,48 +8,77 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 210 66% 11%;
-    --foreground: 0 0% 100%;
+    /* --- INÍCIO DAS ALTERAÇÕES --- */
 
-    --card: 210 66% 15%;
-    --card-foreground: 0 0% 100%;
+    /* Base: Fundo quase preto e texto branco/cinza claro */
+    --background: 220 10% 4%; /* Era 210 66% 11% */
+    --foreground: 210 20% 98%; /* Era 0 0% 100% */
 
-    --popover: 210 66% 13%;
-    --popover-foreground: 0 0% 100%;
+    /* Cards: Cinza escuro, um pouco mais claro que o fundo */
+    --card: 220 10% 9%; /* Era 210 66% 15% */
+    --card-foreground: 210 20% 98%; /* Era 0 0% 100% */
 
-    --primary: 167 100% 70%;
-    --primary-foreground: 210 66% 11%;
+    /* Popovers e Menus: Mesma lógica dos cards */
+    --popover: 220 10% 7%; /* Era 210 66% 13% */
+    --popover-foreground: 210 20% 98%; /* Era 0 0% 100% */
 
-    --secondary: 210 66% 18%;
-    --secondary-foreground: 0 0% 100%;
+    /* Primário: Cor de destaque principal (botões, links ativos). Agora é um cinza claro. */
+    --primary: 210 20% 90%; /* Era 167 100% 70% (ciano) */
+    --primary-foreground: 220 10% 10%; /* Era 210 66% 11% */
 
-    --muted: 210 50% 25%;
-    --muted-foreground: 0 0% 80%;
+    /* Secundário: Usado para elementos menos importantes. */
+    --secondary: 220 10% 15%; /* Era 210 66% 18% */
+    --secondary-foreground: 210 20% 90%; /* Era 0 0% 100% */
 
-    --accent: 167 100% 70%;
-    --accent-foreground: 210 66% 11%;
+    /* Muted: Para textos e elementos com pouca ênfase. */
+    --muted: 220 10% 20%; /* Era 210 50% 25% */
+    --muted-foreground: 220 10% 60%; /* Era 0 0% 80% */
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 100%;
+    /* Accent: Cor para hover, etc. Usaremos a mesma do secundário para manter a sobriedade. */
+    --accent: 220 10% 15%; /* Era 167 100% 70% */
+    --accent-foreground: 210 20% 98%; /* Era 210 66% 11% */
 
-    --border: 210 50% 25%;
-    --input: 210 50% 20%;
-    --ring: 167 100% 70%;
+    /* Destructive: Mantemos o vermelho para erros. */
+    --destructive: 0 72% 51%; /* Ajuste leve para melhor contraste */
+    --destructive-foreground: 210 20% 98%;
+
+    /* Bordas e Inputs: Cinzas escuros e sutis. */
+    --border: 220 10% 15%; /* Era 210 50% 25% */
+    --input: 220 10% 12%; /* Era 210 50% 20% */
+    --ring: 167 100% 70%; /* Mantemos o ciano APENAS para o anel de foco. */
 
     --radius: 0.5rem;
 
-    --sidebar-background: 210 66% 9%;
-    --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 167 100% 70%;
-    --sidebar-primary-foreground: 210 66% 11%;
-    --sidebar-accent: 210 66% 15%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 210 50% 18%;
-    --sidebar-ring: 167 100% 70%;
+    /* Cores de Status: Ajustadas para a nova paleta */
+    --status-requested: 45 100% 60%;
+    --status-sent: 210 100% 70%;
+    --status-received: 142 70% 45%;
 
-    --status-requested: 45 100% 50%;
-    --status-sent: 210 100% 60%;
-    --status-received: 142 76% 36%;
+    /* --- FIM DAS ALTERAÇÕES --- */
+  }
+
+  /* Adicionando a classe para o tema escuro explicitamente */
+  .dark {
+    /* Repetimos as mesmas variáveis para garantir a aplicação */
+    --background: 220 10% 4%;
+    --foreground: 210 20% 98%;
+    --card: 220 10% 9%;
+    --card-foreground: 210 20% 98%;
+    --popover: 220 10% 7%;
+    --popover-foreground: 210 20% 98%;
+    --primary: 210 20% 90%;
+    --primary-foreground: 220 10% 10%;
+    --secondary: 220 10% 15%;
+    --secondary-foreground: 210 20% 90%;
+    --muted: 220 10% 20%;
+    --muted-foreground: 220 10% 60%;
+    --accent: 220 10% 15%;
+    --accent-foreground: 210 20% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 20% 98%;
+    --border: 220 10% 15%;
+    --input: 220 10% 12%;
+    --ring: 167 100% 70%;
   }
 }
 

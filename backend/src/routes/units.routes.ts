@@ -1,11 +1,9 @@
 import { Router, Request } from 'express';
 import { PrismaClient, Prisma } from '@prisma/client';
-import { authMiddleware, AuthenticatedRequest } from '../middlewares/auth.middleware'; // Importando o tipo correto
+import { authMiddleware, AuthenticatedRequest } from '../middlewares/auth.middleware';
 
 const router = Router();
 const prisma = new PrismaClient();
-
-// --- INÍCIO DAS NOVAS ROTAS DE GERENCIAMENTO ---
 
 // Middleware para verificar se o usuário é Diretor
 const directorOnly = (req: AuthenticatedRequest, res: any, next: any) => {
@@ -38,9 +36,9 @@ router.post('/', authMiddleware, directorOnly, async (req, res) => {
 // Rota para ATUALIZAR uma unidade (ex: associar um coordenador) (Apenas Diretor)
 router.put('/:id', authMiddleware, directorOnly, async (req, res) => {
   const { id } = req.params;
-  const { name, coordinatorId } = req.body; // Recebe nome e/ou ID do coordenador
+  const { name, coordinatorId } = req.body;
 
-  if (!name && !coordinatorId) {
+  if (!name && coordinatorId === undefined) { // Verifica se coordinatorId é undefined para permitir desassociação
     return res.status(400).json({ message: 'É necessário fornecer um nome ou um ID de coordenador para atualizar.' });
   }
 
@@ -48,8 +46,8 @@ router.put('/:id', authMiddleware, directorOnly, async (req, res) => {
     const updatedUnit = await prisma.unit.update({
       where: { id },
       data: {
-        name, // Atualiza o nome se fornecido
-        coordinatorId, // Associa ou desassocia o coordenador (pode ser null)
+        name,
+        coordinatorId,
       },
     });
     res.status(200).json(updatedUnit);
@@ -58,32 +56,35 @@ router.put('/:id', authMiddleware, directorOnly, async (req, res) => {
   }
 });
 
-// Rota para DELETAR uma unidade (Apenas Diretor)
+// --- INÍCIO DA ALTERAÇÃO ---
+// Rota para DELETAR uma unidade (Apenas Diretor) - LÓGICA REFINADA
 router.delete('/:id', authMiddleware, directorOnly, async (req, res) => {
   const { id } = req.params;
   try {
-    // Validação: Não permitir excluir unidade se ela tiver itens no inventário ou solicitações
-    const unit = await prisma.unit.findUnique({
-      where: { id },
-      include: { inventoryItems: true, requests: true },
+    // Usamos uma transação para garantir que todas as operações ocorram ou nenhuma ocorra.
+    await prisma.$transaction(async (tx) => {
+      // 1. Desassociar todos os instrutores desta unidade.
+      // Isso define o `unitId` deles como null, mas não os exclui.
+      await tx.user.updateMany({
+        where: { unitId: id },
+        data: { unitId: null },
+      });
+
+      // 2. Excluir a unidade.
+      // O Prisma irá lidar com a exclusão em cascata de 'UnitItem' e 'Request'
+      // se o schema estiver configurado com `onDelete: Cascade`.
+      await tx.unit.delete({
+        where: { id },
+      });
     });
 
-    if (unit?.inventoryItems.length || 0 > 0) {
-      return res.status(400).json({ message: 'Não é possível excluir a unidade. Esvazie o inventário local primeiro.' });
-    }
-    if (unit?.requests.length || 0 > 0) {
-      return res.status(400).json({ message: 'Não é possível excluir a unidade. Existem solicitações associadas a ela.' });
-    }
-
-    await prisma.unit.delete({ where: { id } });
     res.status(204).send(); // 204 No Content
   } catch (error) {
-    res.status(500).json({ message: 'Erro ao deletar a unidade.' });
+    console.error("Erro ao deletar unidade:", error);
+    res.status(500).json({ message: 'Erro ao deletar a unidade. Verifique as dependências no banco de dados.' });
   }
 });
-
-// --- FIM DAS NOVAS ROTAS DE GERENCIAMENTO ---
-
+// --- FIM DA ALTERAÇÃO ---
 
 // Rota para buscar unidades com base no cargo do usuário: GET /api/units
 router.get('/', authMiddleware, async (req: AuthenticatedRequest, res) => {
@@ -100,7 +101,6 @@ router.get('/', authMiddleware, async (req: AuthenticatedRequest, res) => {
 
     const units = await prisma.unit.findMany({
       where: whereClause,
-      // Incluindo o nome do coordenador para exibir na interface
       include: {
         coordinator: {
           select: { name: true }
@@ -115,7 +115,7 @@ router.get('/', authMiddleware, async (req: AuthenticatedRequest, res) => {
   }
 });
 
-// Rota para buscar UMA unidade específica (sem alterações)
+// Rota para buscar UMA unidade específica
 router.get('/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;

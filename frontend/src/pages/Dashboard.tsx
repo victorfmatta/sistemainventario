@@ -81,9 +81,9 @@ const Dashboard = () => {
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between mb-8">
             <h1 className="text-3xl font-bold text-foreground">Minhas Unidades</h1>
-            <Button className="bg-primary text-primary-foreground hover:bg-primary/90 font-medium">
+            {/* <Button className="bg-primary text-primary-foreground hover:bg-primary/90 font-medium">
               + Adicionar Nova Unidade
-            </Button>
+            </Button> */}
           </div>
 
           {/* 8. Mapear a lista de unidades do estado, em vez dos mockUnits */}
