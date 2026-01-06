@@ -9,6 +9,8 @@ interface Item {
   id: string;
   name: string;
   description: string | null;
+  unitOfMeasure?: string | null;
+  internalCode?: string | null;
   quantity: number;
 }
 
@@ -21,7 +23,9 @@ interface EditItemFormProps {
 
 export const EditItemForm = ({ item, onItemUpdated, onCancel, token }: EditItemFormProps) => {
   const [name, setName] = useState(item.name);
-  const [quantity, setQuantity] = useState(item.quantity);
+  const [internalCode, setInternalCode] = useState(item.internalCode || '');
+  const [unitOfMeasure, setUnitOfMeasure] = useState(item.unitOfMeasure || '');
+  const [quantity, setQuantity] = useState<string | number>(item.quantity);
   const [description, setDescription] = useState(item.description || '');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +42,7 @@ export const EditItemForm = ({ item, onItemUpdated, onCancel, token }: EditItemF
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ name, description, quantity } ),
+        body: JSON.stringify({ name, internalCode, unitOfMeasure, description, quantity: Number(quantity) }),
       });
 
       if (response.ok) {
@@ -60,10 +64,38 @@ export const EditItemForm = ({ item, onItemUpdated, onCancel, token }: EditItemF
         <Label htmlFor="name">Nome do Item</Label>
         <Input id="name" value={name} onChange={(e) => setName(e.target.value)} disabled={isLoading} />
       </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="internalCode">Código Interno/SKU</Label>
+          <Input
+            id="internalCode"
+            value={internalCode}
+            onChange={(e) => setInternalCode(e.target.value)}
+            disabled={isLoading}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="unitOfMeasure">Unidade de Medida</Label>
+          <Input
+            id="unitOfMeasure"
+            value={unitOfMeasure}
+            onChange={(e) => setUnitOfMeasure(e.target.value)}
+            disabled={isLoading}
+          />
+        </div>
+      </div>
       <div className="space-y-2">
         <Label htmlFor="quantity">Quantidade em Estoque</Label>
         {/* A única alteração é permitir 0 como quantidade */}
-        <Input id="quantity" type="number" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} min="0" disabled={isLoading} />
+        <Input
+          id="quantity"
+          type="number"
+          value={quantity}
+          onChange={(e) => setQuantity(e.target.value)}
+          onFocus={(e) => e.target.select()}
+          min="0"
+          disabled={isLoading}
+        />
       </div>
       <div className="space-y-2">
         <Label htmlFor="description">Descrição (Opcional)</Label>

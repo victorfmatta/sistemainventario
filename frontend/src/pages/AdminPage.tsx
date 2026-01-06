@@ -1,76 +1,193 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from "react";
+import { Navigate } from "react-router-dom";
 import { AppSidebar } from "@/components/AppSidebar";
 import { useAuth } from "@/contexts/auth.context";
-import { Navigate } from "react-router-dom";
-import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { LoaderCircle, Pencil, Trash2 } from 'lucide-react';
-import { toast } from 'sonner';
-import { EditUnitForm } from '@/components/forms/EditUnitForm';
-import { CreateUserForm } from '@/components/forms/CreateUserForm';
-// --- INÍCIO DAS NOVAS ALTERAÇÕES ---
-import { AssignUnitForm } from '@/components/forms/AssignUnitForm'; // 1. Importar o novo formulário
-// --- FIM DAS NOVAS ALTERAÇÕES ---
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Link, LoaderCircle, Pencil, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
-// Tipos de dados
-interface Unit { id: string; name: string; coordinatorId: string | null; coordinator: { name: string } | null; }
-// Atualizar o tipo User para incluir a unidade associada
-interface User { id: string; name: string; email: string; role: string; unit: { id: string; name: string; } | null; }
+import { EditUnitForm } from "@/components/forms/EditUnitForm";
+import { CreateUserForm } from "@/components/forms/CreateUserForm";
+import { EditUserForm } from "@/components/forms/EditUserForm";
+import { AssignUnitForm } from "@/components/forms/AssignUnitForm";
+
+/* ===================== TIPOS ===================== */
+
+interface Unit {
+  id: string;
+  name: string;
+  coordinatorId: string | null; // ✅ NÃO opcional (alinhado ao EditUnitForm e Prisma)
+  coordinator: { name: string } | null;
+}
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  unit: { id: string; name: string } | null;
+}
+
+/* ===================== COMPONENTE ===================== */
 
 const AdminPage = () => {
   const { user, token } = useAuth();
+
   const [units, setUnits] = useState<Unit[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [coordinators, setCoordinators] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Estados para modais de Unidade
+  /* -------- filtros -------- */
+  const [unitSearch, setUnitSearch] = useState("");
+  const [userSearch, setUserSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("ALL");
+  const [unitFilter, setUnitFilter] = useState("ALL");
+
+  /* -------- modais -------- */
   const [isUnitModalOpen, setIsUnitModalOpen] = useState(false);
   const [editingUnit, setEditingUnit] = useState<Unit | null>(null);
+  const [deletingUnit, setDeletingUnit] = useState<Unit | null>(null);
 
-  // Estados para modais de Usuário
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
 
-  // --- INÍCIO DAS NOVAS ALTERAÇÕES ---
-  // 2. Estados para o modal de associação de unidade
-  const [isAssignUnitModalOpen, setIsAssignUnitModalOpen] = useState(false);
-  const [assigningInstructor, setAssigningInstructor] = useState<User | null>(null);
-  // --- FIM DAS NOVAS ALTERAÇÕES ---
+  const [assigningInstructor, setAssigningInstructor] =
+    useState<User | null>(null);
+
+  /* ===================== FETCH ===================== */
 
   const fetchData = async (showLoading = true) => {
     if (!token) return;
     if (showLoading) setIsLoading(true);
-    try {
-      const unitsResponse = await fetch('http://localhost:3001/api/units', { headers: { 'Authorization': `Bearer ${token}` } } );
-      const usersResponse = await fetch('http://localhost:3001/api/users', { headers: { 'Authorization': `Bearer ${token}` } } );
 
-      if (unitsResponse.ok && usersResponse.ok) {
-        const allUnits = await unitsResponse.json();
-        const allUsers = await usersResponse.json();
-        setUnits(allUnits);
-        setUsers(allUsers);
-        setCoordinators(allUsers.filter((u: User) => u.role === 'COORDENADOR'));
+    try {
+      const [unitsRes, usersRes] = await Promise.all([
+        fetch("http://localhost:3001/api/units", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch("http://localhost:3001/api/users", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
+
+      if (unitsRes.ok && usersRes.ok) {
+        const unitsData = await unitsRes.json();
+        const usersData = await usersRes.json();
+
+        setUnits(unitsData);
+        setUsers(usersData);
+        setCoordinators(
+          usersData.filter((u: User) => u.role === "COORDENADOR")
+        );
       } else {
         toast.error("Falha ao carregar dados de administração.");
       }
-    } catch (error) {
+    } catch {
       toast.error("Erro de conexão com o servidor.");
     } finally {
       if (showLoading) setIsLoading(false);
     }
   };
 
-  useEffect(() => { if(token) fetchData(); }, [token]);
+  useEffect(() => {
+    fetchData();
+  }, [token]);
+
+  /* ===================== FILTROS DERIVADOS ===================== */
+
+  const filteredUnits = useMemo(
+    () =>
+      units.filter((u) =>
+        u.name.toLowerCase().includes(unitSearch.toLowerCase())
+      ),
+    [units, unitSearch]
+  );
+
+  const filteredUsers = useMemo(() => {
+    return users.filter((u) => {
+      const matchSearch =
+        u.name.toLowerCase().includes(userSearch.toLowerCase()) ||
+        u.email.toLowerCase().includes(userSearch.toLowerCase());
+
+      const matchRole = roleFilter === "ALL" || u.role === roleFilter;
+      const matchUnit = unitFilter === "ALL" || u.unit?.id === unitFilter;
+
+      return matchSearch && matchRole && matchUnit;
+    });
+  }, [users, userSearch, roleFilter, unitFilter]);
+
+  /* ===================== HANDLERS ===================== */
 
   const handleUnitSuccess = async () => {
-    const message = editingUnit ? "Unidade atualizada!" : "Unidade criada!";
-    toast.success(message);
+    toast.success("Unidade salva com sucesso!");
     await fetchData(false);
     setIsUnitModalOpen(false);
     setEditingUnit(null);
+  };
+
+  const handleDeleteUnit = async () => {
+    if (!deletingUnit) return;
+
+    try {
+      const res = await fetch(
+        `http://localhost:3001/api/units/${deletingUnit.id}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (res.ok) {
+        toast.success("Unidade excluída com sucesso!");
+        await fetchData(false);
+      } else {
+        toast.error("Falha ao excluir a unidade.");
+      }
+    } catch {
+      toast.error("Erro de conexão.");
+    } finally {
+      setDeletingUnit(null);
+    }
   };
 
   const handleUserCreateSuccess = async () => {
@@ -79,195 +196,367 @@ const AdminPage = () => {
     setIsUserModalOpen(false);
   };
 
+  const handleUserEditSuccess = async () => {
+    toast.success("Usuário atualizado com sucesso!");
+    await fetchData(false);
+    setEditingUser(null);
+  };
+
   const handleDeleteUser = async () => {
     if (!deletingUser) return;
+
     try {
-      const response = await fetch(`http://localhost:3001/api/users/${deletingUser.id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` },
-      } );
-      if (response.ok) {
-        toast.success(`Usuário "${deletingUser.name}" excluído com sucesso.`);
+      const res = await fetch(
+        `http://localhost:3001/api/users/${deletingUser.id}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (res.ok) {
+        toast.success("Usuário excluído com sucesso!");
         await fetchData(false);
       } else {
         toast.error("Falha ao excluir o usuário.");
       }
-    } catch (error) {
-      toast.error("Erro de conexão ao tentar excluir.");
+    } catch {
+      toast.error("Erro de conexão.");
     } finally {
       setDeletingUser(null);
     }
   };
 
-  // --- INÍCIO DAS NOVAS ALTERAÇÕES ---
-  // 3. Handler de sucesso para o novo formulário
-  const handleAssignUnitSuccess = async () => {
-    toast.success("Instrutor associado à unidade com sucesso!");
-    await fetchData(false);
-    setIsAssignUnitModalOpen(false);
-    setAssigningInstructor(null);
-  };
+  /* ===================== GUARDAS ===================== */
 
-  const openAssignUnitModal = (instructor: User) => {
-    setAssigningInstructor(instructor);
-    setIsAssignUnitModalOpen(true);
-  };
-  // --- FIM DAS NOVAS ALTERAÇÕES ---
-
-  const openUnitModalForEdit = (unit: Unit) => { setEditingUnit(unit); setIsUnitModalOpen(true); };
-  const openUnitModalForCreate = () => { setEditingUnit(null); setIsUnitModalOpen(true); };
-
-  if (!user || (user.role !== 'DIRETOR' && user.role !== 'COORDENADOR')) {
+  if (!user || (user.role !== "DIRETOR" && user.role !== "COORDENADOR")) {
     return <Navigate to="/dashboard" />;
   }
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen w-full bg-background">
+      <div className="flex min-h-screen w-full bg-gradient-to-br from-brand-blue/30 via-background to-background">
         <AppSidebar />
-        <main className="flex-1 p-8 flex items-center justify-center">
+        <main className="flex-1 flex items-center justify-center">
           <LoaderCircle className="h-10 w-10 animate-spin text-primary" />
         </main>
       </div>
     );
   }
 
+  /* ===================== RENDER ===================== */
+
   return (
-    <div className="flex min-h-screen w-full bg-background">
+    <div className="flex min-h-screen w-full bg-gradient-to-br from-brand-blue/30 via-background to-background">
       <AppSidebar />
-      <main className="flex-1 p-8">
+
+      <main className="flex-1 p-10">
         <div className="max-w-7xl mx-auto space-y-8">
-          <h1 className="text-3xl font-bold text-foreground">Painel de Administração</h1>
-          
-          {user.role === 'DIRETOR' && (
-            <section className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-semibold text-foreground">Gerenciamento de Unidades</h2>
-                <Button onClick={openUnitModalForCreate}>+ Criar Nova Unidade</Button>
+          <header>
+            <h1 className="text-3xl font-bold text-white">Administração</h1>
+            <p className="text-sm text-white/60 mt-1">
+              Gerenciamento de unidades e usuários
+            </p>
+          </header>
+
+          <Tabs defaultValue="units">
+            <TabsList className="bg-brand-blue/40">
+              <TabsTrigger value="units">Unidades</TabsTrigger>
+              <TabsTrigger value="users">Usuários</TabsTrigger>
+            </TabsList>
+
+            {/* ===================== UNIDADES ===================== */}
+            <TabsContent value="units" className="space-y-4">
+              <div className="flex justify-between gap-4">
+                <Input
+                  placeholder="Buscar unidade..."
+                  value={unitSearch}
+                  onChange={(e) => setUnitSearch(e.target.value)}
+                />
+                {user.role === "DIRETOR" && (
+                  <Button onClick={() => setIsUnitModalOpen(true)}>
+                    + Nova Unidade
+                  </Button>
+                )}
               </div>
-              <div className="rounded-lg border border-border overflow-hidden">
+
+              <div className="rounded-xl border border-brand-blue/30 bg-brand-blue/40 backdrop-blur-md overflow-hidden">
                 <Table>
-                  <TableHeader><TableRow className="bg-secondary hover:bg-secondary">
-                    <TableHead className="text-secondary-foreground">Nome da Unidade</TableHead>
-                    <TableHead className="text-secondary-foreground">Coordenador Responsável</TableHead>
-                    <TableHead className="text-secondary-foreground text-right">Ações</TableHead>
-                  </TableRow></TableHeader>
+                  <TableHeader>
+                    <TableRow className="bg-brand-blue/60">
+                      <TableHead className="text-white">Nome</TableHead>
+                      <TableHead className="text-white">Coordenador</TableHead>
+                      <TableHead className="text-white text-right">
+                        Ações
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
                   <TableBody>
-                    {units.length > 0 ? (
-                      units.map((unit) => (
-                        <TableRow key={unit.id}>
-                          <TableCell className="font-medium">{unit.name}</TableCell>
-                          <TableCell className="text-muted-foreground">{unit.coordinator?.name || 'Nenhum'}</TableCell>
-                          <TableCell className="text-right">
-                            <Button variant="ghost" size="icon" onClick={() => openUnitModalForEdit(unit)}><Pencil className="w-4 h-4" /></Button>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (<TableRow><TableCell colSpan={3} className="text-center h-24">Nenhuma unidade cadastrada.</TableCell></TableRow>)}
+                    {filteredUnits.map((unit) => (
+                      <TableRow key={unit.id} className="hover:bg-white/5">
+                        <TableCell className="text-white">
+                          {unit.name}
+                        </TableCell>
+                        <TableCell className="text-white/70">
+                          {unit.coordinator?.name || "Nenhum"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {user.role === "DIRETOR" && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  setEditingUnit(unit);
+                                  setIsUnitModalOpen(true);
+                                }}
+                              >
+                                <Pencil className="w-4 h-4 text-white" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setDeletingUnit(unit)}
+                              >
+                                <Trash2 className="w-4 h-4 text-red-400" />
+                              </Button>
+                            </>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
               </div>
-            </section>
-          )}
+            </TabsContent>
 
-          <section className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-semibold text-foreground">
-                {user.role === 'DIRETOR' ? 'Gerenciamento de Usuários' : 'Gerenciamento de Instrutores'}
-              </h2>
-              <Button onClick={() => setIsUserModalOpen(true)}>
-                {user.role === 'DIRETOR' ? '+ Criar Novo Usuário' : '+ Criar Novo Instrutor'}
-              </Button>
-            </div>
-            <div className="rounded-lg border border-border overflow-hidden">
-              <Table>
-                <TableHeader><TableRow className="bg-secondary hover:bg-secondary">
-                  <TableHead className="text-secondary-foreground">Nome</TableHead>
-                  <TableHead className="text-secondary-foreground">Email</TableHead>
-                  <TableHead className="text-secondary-foreground">Cargo</TableHead>
-                  {/* 4. Adicionar coluna "Unidade" para o Coordenador */}
-                  {user.role === 'COORDENADOR' && <TableHead className="text-secondary-foreground">Unidade Associada</TableHead>}
-                  <TableHead className="text-secondary-foreground text-right">Ações</TableHead>
-                </TableRow></TableHeader>
-                <TableBody>
-                  {users.length > 0 ? (
-                    users.map((u) => (
-                      <TableRow key={u.id}>
-                        <TableCell className="font-medium">{u.name}</TableCell>
-                        <TableCell>{u.email}</TableCell>
-                        <TableCell className="text-muted-foreground">{u.role}</TableCell>
-                        {/* 5. Exibir a unidade do instrutor */}
-                        {user.role === 'COORDENADOR' && <TableCell className="text-muted-foreground">{u.unit?.name || 'Nenhuma'}</TableCell>}
+            {/* ===================== USUÁRIOS ===================== */}
+            <TabsContent value="users" className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Input
+                  placeholder="Buscar usuário..."
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                />
+
+                <Select value={roleFilter} onValueChange={setRoleFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Cargo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">Cargo</SelectItem>
+                    <SelectItem value="DIRETOR">Diretor</SelectItem>
+                    <SelectItem value="COORDENADOR">Coordenador</SelectItem>
+                    <SelectItem value="INSTRUTOR">Instrutor</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={unitFilter} onValueChange={setUnitFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Unidade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">Unidade</SelectItem>
+                    {units.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Button onClick={() => setIsUserModalOpen(true)}>
+                  + Novo Usuário
+                </Button>
+              </div>
+
+              <div className="rounded-xl border border-brand-blue/30 bg-brand-blue/40 backdrop-blur-md overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-brand-blue/60">
+                      <TableHead className="text-white">Nome</TableHead>
+                      <TableHead className="text-white">Email</TableHead>
+                      <TableHead className="text-white">Cargo</TableHead>
+                      <TableHead className="text-white">Unidade</TableHead>
+                      <TableHead className="text-white text-right">
+                        Ações
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredUsers.map((u) => (
+                      <TableRow key={u.id} className="hover:bg-white/5">
+                        <TableCell className="text-white">
+                          {u.name}
+                        </TableCell>
+                        <TableCell className="text-white">
+                          {u.email}
+                        </TableCell>
+                        <TableCell className="text-white/70">
+                          {u.role}
+                        </TableCell>
+                        <TableCell className="text-white/70">
+                          {u.unit?.name || "-"}
+                        </TableCell>
                         <TableCell className="text-right">
-                          {/* 6. Botão de Editar/Associar para o Coordenador */}
-                          {user.role === 'COORDENADOR' && u.role === 'INSTRUTOR' && (
-                            <Button variant="ghost" size="icon" onClick={() => openAssignUnitModal(u)}>
-                              <Pencil className="w-4 h-4" />
+                          {user.role === "DIRETOR" && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setEditingUser(u)}
+                            >
+                              <Pencil className="w-4 h-4 text-white" />
                             </Button>
                           )}
-                          {user && u.id !== user.id && (
-                            <Button variant="ghost" size="icon" onClick={() => setDeletingUser(u)}>
-                              <Trash2 className="w-4 h-4 text-destructive" />
+                          {/* Botão de Associar Unidade (Apenas Coordenador) */}
+                          {user.role === "COORDENADOR" && u.role === "INSTRUTOR" && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Associar Unidade"
+                              onClick={() => setAssigningInstructor(u)}
+                            >
+                              <Link className="w-4 h-4 text-blue-400" />
+                            </Button>
+                          )}
+                          {u.id !== user.id && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setDeletingUser(u)}
+                            >
+                              <Trash2 className="w-4 h-4 text-red-400" />
                             </Button>
                           )}
                         </TableCell>
                       </TableRow>
-                    ))
-                  ) : (<TableRow><TableCell colSpan={user.role === 'COORDENADOR' ? 5 : 4} className="text-center h-24">Nenhum usuário encontrado.</TableCell></TableRow>)}
-                </TableBody>
-              </Table>
-            </div>
-          </section>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
       </main>
 
-      {/* Modal para Criar/Editar Unidade */}
-      <Dialog open={isUnitModalOpen} onOpenChange={(isOpen) => { if (!isOpen) { setIsUnitModalOpen(false); setEditingUnit(null); }}}>
+      {/* ===================== MODAIS ===================== */}
+
+      <Dialog open={isUnitModalOpen} onOpenChange={setIsUnitModalOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>{editingUnit ? `Editar Unidade: ${editingUnit.name}` : 'Criar Nova Unidade'}</DialogTitle></DialogHeader>
-          <EditUnitForm unit={editingUnit} coordinators={coordinators} onSuccess={handleUnitSuccess} onCancel={() => setIsUnitModalOpen(false)} token={token} />
+          <DialogHeader>
+            <DialogTitle>
+              {editingUnit ? "Editar Unidade" : "Nova Unidade"}
+            </DialogTitle>
+          </DialogHeader>
+          <EditUnitForm
+            unit={editingUnit}
+            coordinators={coordinators}
+            token={token!}
+            onSuccess={handleUnitSuccess}
+            onCancel={() => {
+              setIsUnitModalOpen(false);
+              setEditingUnit(null);
+            }}
+          />
         </DialogContent>
       </Dialog>
 
-      {/* Modal para Criar Usuário */}
       <Dialog open={isUserModalOpen} onOpenChange={setIsUserModalOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>
-            {user.role === 'DIRETOR' ? 'Criar Novo Usuário' : 'Criar Novo Instrutor'}
-          </DialogTitle></DialogHeader>
-          <CreateUserForm onSuccess={handleUserCreateSuccess} onCancel={() => setIsUserModalOpen(false)} token={token} />
+          <DialogHeader>
+            <DialogTitle>Novo Usuário</DialogTitle>
+          </DialogHeader>
+          <CreateUserForm
+            creatorRole={user.role}
+            token={token!}
+            onSuccess={handleUserCreateSuccess}
+            onCancel={() => setIsUserModalOpen(false)}
+          />
         </DialogContent>
       </Dialog>
 
-      {/* Modal de Confirmação de Exclusão */}
-      <AlertDialog open={!!deletingUser} onOpenChange={(isOpen) => !isOpen && setDeletingUser(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader><AlertDialogTitle>Você tem certeza?</AlertDialogTitle></AlertDialogHeader>
-          <AlertDialogDescription>Esta ação não pode ser desfeita. Isso excluirá permanentemente o usuário <strong>{deletingUser?.name}</strong> e todo o seu acesso.</AlertDialogDescription>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteUser} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Confirmar Exclusão</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* --- INÍCIO DAS NOVAS ALTERAÇÕES --- */}
-      {/* 7. Modal para Associar Instrutor a uma Unidade */}
-      <Dialog open={isAssignUnitModalOpen} onOpenChange={(isOpen) => { if (!isOpen) { setIsAssignUnitModalOpen(false); setAssigningInstructor(null); }}}>
+      <Dialog
+        open={!!editingUser}
+        onOpenChange={(open) => !open && setEditingUser(null)}
+      >
         <DialogContent>
-          <DialogHeader><DialogTitle>Associar Instrutor: {assigningInstructor?.name}</DialogTitle></DialogHeader>
-          {assigningInstructor && (
-            <AssignUnitForm
-              instructor={assigningInstructor}
-              units={units} // Passa a lista de unidades que o coordenador gerencia
-              onSuccess={handleAssignUnitSuccess}
-              onCancel={() => setIsAssignUnitModalOpen(false)}
-              token={token}
+          <DialogHeader>
+            <DialogTitle>Editar Usuário</DialogTitle>
+          </DialogHeader>
+          {editingUser && (
+            <EditUserForm
+              user={editingUser}
+              token={token!}
+              onSuccess={handleUserEditSuccess}
+              onCancel={() => setEditingUser(null)}
             />
           )}
         </DialogContent>
       </Dialog>
-      {/* --- FIM DAS NOVAS ALTERAÇÕES --- */}
+
+      <Dialog
+        open={!!assigningInstructor}
+        onOpenChange={(open) => !open && setAssigningInstructor(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Associar Instrutor</DialogTitle>
+          </DialogHeader>
+          {assigningInstructor && (
+            <AssignUnitForm
+              instructor={assigningInstructor}
+              units={units}
+              token={token!}
+              onSuccess={() => {
+                toast.success("Instrutor associado!");
+                fetchData(false);
+                setAssigningInstructor(null);
+              }}
+              onCancel={() => setAssigningInstructor(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={!!deletingUnit}
+        onOpenChange={(open) => !open && setDeletingUnit(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir unidade?</AlertDialogTitle>
+          </AlertDialogHeader>
+          <AlertDialogDescription>
+            Esta ação não pode ser desfeita.
+          </AlertDialogDescription>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteUnit}>
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={!!deletingUser}
+        onOpenChange={(open) => !open && setDeletingUser(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir usuário?</AlertDialogTitle>
+          </AlertDialogHeader>
+          <AlertDialogDescription>
+            Esta ação não pode ser desfeita.
+          </AlertDialogDescription>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteUser}>
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

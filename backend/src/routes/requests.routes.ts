@@ -5,10 +5,11 @@ import { authMiddleware, AuthenticatedRequest } from '../middlewares/auth.middle
 const router = Router();
 const prisma = new PrismaClient();
 
-// Rota GET para buscar solicitações com base no cargo do usuário
+// Rota GET para buscar solicitações com base no cargo e filtros
 router.get('/', authMiddleware, async (req: AuthenticatedRequest, res) => {
   try {
     const { userId, role } = req.user!;
+    const { status, unitId, search } = req.query;
 
     let whereClause: Prisma.RequestWhereInput = {};
 
@@ -35,14 +36,31 @@ router.get('/', authMiddleware, async (req: AuthenticatedRequest, res) => {
       }
     }
 
+    if (status && typeof status === 'string') {
+      whereClause.status = status;
+    }
+
+    if (unitId && typeof unitId === 'string') {
+      if (role === 'DIRETOR') {
+        whereClause.unitId = unitId;
+      }
+    }
+
+    if (search && typeof search === 'string') {
+      whereClause.item = {
+        name: {
+          contains: search,
+          // --- CORREÇÃO: A linha 'mode: "insensitive"' foi removida ---
+        },
+      };
+    }
+
     const requests = await prisma.request.findMany({
       where: whereClause,
       orderBy: { createdAt: 'desc' },
       include: {
         item: { select: { name: true } },
-        // --- CORREÇÃO 1: 'purpose' e 'observation' removidos do 'include' ---
-        // Eles já são retornados por padrão.
-        requestedBy: { select: { name: true } }, // Nome da relação correta
+        requestedBy: { select: { name: true } },
         unit: { select: { name: true } },
       },
     });
@@ -57,7 +75,7 @@ router.get('/', authMiddleware, async (req: AuthenticatedRequest, res) => {
 router.post('/', authMiddleware, async (req: AuthenticatedRequest, res) => {
   try {
     const { itemId, quantity, unitId, purpose, observation } = req.body;
-    const { userId } = req.user!; // Extrai o userId do token
+    const { userId } = req.user!;
 
     if (!itemId || !quantity || !unitId || !userId) {
       return res.status(400).json({ message: 'Dados da solicitação incompletos.' });
@@ -69,7 +87,6 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res) => {
         status: 'SOLICITADO',
         purpose,
         observation,
-        // --- CORREÇÃO 2: Usando o nome correto do campo do schema ---
         requestedById: userId,
         itemId,
         unitId,
@@ -79,7 +96,7 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res) => {
   } catch (error) {
     console.error('Erro ao criar solicitação:', error);
     if (error instanceof Error) {
-        console.error(error.message);
+      console.error(error.message);
     }
     res.status(500).json({ message: 'Ocorreu um erro no servidor ao criar a solicitação.' });
   }
@@ -108,6 +125,7 @@ router.put('/:id/status', authMiddleware, async (req: AuthenticatedRequest, res)
             where: { id: request.itemId },
             data: { quantity: { decrement: request.quantity } },
           });
+
         } else if (newStatus !== 'CANCELADO') {
           throw new Error('Ação não permitida para este cargo ou status atual.');
         }

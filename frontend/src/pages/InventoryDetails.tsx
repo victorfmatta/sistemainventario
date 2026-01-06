@@ -8,6 +8,14 @@ import { LoaderCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
 import { toast } from 'sonner';
 import { AddRequestForm } from '@/components/forms/AddRequestForm';
+import { exportToExcel, exportToPDF } from '@/utils/exportUtils';
+import { FileDown, FileSpreadsheet, Download } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
 
 interface InventoryItem {
   id: string;
@@ -41,7 +49,7 @@ const InventoryDetails = () => {
     try {
       const response = await fetch(`http://localhost:3001/api/units/${unitId}`, {
         headers: { 'Authorization': `Bearer ${token}` },
-      } );
+      });
       if (response.ok) {
         setUnit(await response.json());
       } else {
@@ -74,7 +82,48 @@ const InventoryDetails = () => {
   // --- INÍCIO DA ALTERAÇÃO ---
   // Apenas o COORDENADOR pode fazer solicitações.
   const canMakeRequest = user?.role === 'COORDENADOR';
+  const isDirector = user?.role === 'DIRETOR';
   // --- FIM DA ALTERAÇÃO ---
+
+  const handleExportExcel = () => {
+    if (!unit || unit.inventoryItems.length === 0) {
+      toast.error("Nenhum item para exportar.");
+      return;
+    }
+    const columns = [
+      { header: "Item", key: "item.name" },
+      { header: "Qtd", key: "quantity" },
+      { header: "Atualizado em", key: "item.updatedAt" },
+    ];
+    // Flatten data for simple export
+    const dataToExport = unit.inventoryItems.map(inv => ({
+      ...inv,
+      "item.name": inv.item.name,
+      "item.updatedAt": new Date(inv.item.updatedAt).toLocaleString('pt-BR')
+    }));
+    exportToExcel(dataToExport, columns, `Inventario_${unit.name}`);
+    toast.success("Download do Excel iniciado.");
+  };
+
+  const handleExportPDF = () => {
+    if (!unit || unit.inventoryItems.length === 0) {
+      toast.error("Nenhum item para exportar.");
+      return;
+    }
+    const columns = [
+      { header: "Item", key: "item.name" },
+      { header: "Qtd", key: "quantity" },
+      { header: "Atualizado em", key: "item.updatedAt" },
+    ];
+    // Flatten data for simple export
+    const dataToExport = unit.inventoryItems.map(inv => ({
+      ...inv,
+      "item.name": inv.item.name,
+      "item.updatedAt": new Date(inv.item.updatedAt).toLocaleString('pt-BR')
+    }));
+    exportToPDF(dataToExport, columns, `Inventário: ${unit.name}`, `Inventario_${unit.name}`);
+    toast.success("Download do PDF iniciado.");
+  };
 
   return (
     <div className="flex min-h-screen w-full bg-background">
@@ -83,7 +132,7 @@ const InventoryDetails = () => {
         <div className="max-w-7xl mx-auto space-y-8">
           <div className="flex items-center justify-between">
             <h1 className="text-3xl font-bold text-foreground">Inventário Local: {unit.name}</h1>
-            
+
             {canMakeRequest && (
               <Dialog open={isRequestModalOpen} onOpenChange={setIsRequestModalOpen}>
                 <DialogTrigger asChild>
@@ -99,6 +148,26 @@ const InventoryDetails = () => {
                   />
                 </DialogContent>
               </Dialog>
+            )}
+
+            {isDirector && (
+              <div className="flex gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Download className="w-4 h-4 mr-2" /> Exportar
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={handleExportExcel} className="cursor-pointer text-green-600 focus:text-green-700">
+                      <FileSpreadsheet className="w-4 h-4 mr-2" /> Exportar para Excel
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleExportPDF} className="cursor-pointer text-red-600 focus:text-red-700">
+                      <FileDown className="w-4 h-4 mr-2" /> Exportar para PDF
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             )}
           </div>
 

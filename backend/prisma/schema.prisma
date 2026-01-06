@@ -21,10 +21,20 @@ model User {
   managedUnits Unit[]    @relation("CoordinatorUnits")
   requests     Request[]
 
-  // --- INÍCIO DA ALTERAÇÃO ---
-  unitId String? // <-- NOVO: Para qual unidade o instrutor trabalha?
-  unit   Unit?   @relation("Instructors", fields: [unitId], references: [id]) // <-- NOVO
-  // --- FIM DA ALTERAÇÃO ---
+  unitId String?
+  unit   Unit?   @relation("Instructors", fields: [unitId], references: [id])
+
+  // --- INÍCIO DAS NOVAS ALTERAÇÕES ---
+  // Relação para rastrear quem criou este usuário
+  createdById String?
+  createdBy   User?     @relation("CreatedUsers", fields: [createdById], references: [id], onDelete: SetNull)
+
+  // Relação para ver a lista de usuários que este usuário criou
+  createdUsers User[]    @relation("CreatedUsers")
+
+  // Entradas de estoque registradas por este usuário
+  stockEntries StockEntry[]
+  // --- FIM DAS NOVAS ALTERAÇÕES ---
 }
 
 model Unit {
@@ -34,11 +44,9 @@ model Unit {
   updatedAt      DateTime   @updatedAt
   
   coordinatorId  String?
-  coordinator    User?      @relation("CoordinatorUnits", fields: [coordinatorId], references: [id])
+  coordinator    User?      @relation("CoordinatorUnits", fields: [coordinatorId], references: [id], onDelete: SetNull) // Adicionado onDelete: SetNull
   
-  // --- INÍCIO DA ALTERAÇÃO ---
-  instructors    User[]     @relation("Instructors") // <-- NOVO: Lista de instrutores nesta unidade
-  // --- FIM DA ALTERAÇÃO ---
+  instructors    User[]     @relation("Instructors")
 
   inventoryItems UnitItem[]
   requests       Request[]
@@ -47,12 +55,58 @@ model Unit {
 model Item {
   id          String     @id @default(cuid())
   name        String     @unique
-  description String?
-  quantity    Int        @default(0)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  requests    Request[]
-  unitItems   UnitItem[]
+  description   String?
+  unitOfMeasure String?    // Unidade de medida (Ex: Un, Kg, Litro)
+  internalCode  String?    // Código interno/SKU
+  quantity      Int        @default(0)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  requests      Request[]
+  unitItems     UnitItem[]
+  stockEntryItems StockEntryItem[]
+}
+
+model Supplier {
+  id           String   @id @default(cuid())
+  name         String   // Nome Fantasia
+  businessName String?  // Razão Social
+  cnpj         String?  @unique
+  contact      String?  // Email ou Telefone
+  address      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  stockEntries StockEntry[]
+}
+
+model StockEntry {
+  id            String   @id @default(cuid())
+  invoiceNumber String?
+  issueDate     DateTime @default(now()) // Data de emissão da nota
+  entryDate     DateTime @default(now()) // Data de entrada no sistema
+  
+  supplierId    String?
+  supplier      Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+
+  items         StockEntryItem[]
+  
+  registeredById String
+  registeredBy   User   @relation(fields: [registeredById], references: [id])
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model StockEntryItem {
+  id           String     @id @default(cuid())
+  quantity     Int
+  unitPrice    Float      // Valor unitário na nota
+
+  stockEntryId String
+  stockEntry   StockEntry @relation(fields: [stockEntryId], references: [id], onDelete: Cascade)
+
+  itemId       String
+  item         Item       @relation(fields: [itemId], references: [id])
 }
 
 model UnitItem {
@@ -76,11 +130,11 @@ model Request {
   observation   String?
   
   itemId        String
-  item          Item      @relation(fields: [itemId], references: [id])
+  item          Item      @relation(fields: [itemId], references: [id], onDelete: Cascade) // Adicionado onDelete: Cascade
   
   unitId        String
-  unit          Unit      @relation(fields: [unitId], references: [id])
+  unit          Unit      @relation(fields: [unitId], references: [id], onDelete: Cascade) // Adicionado onDelete: Cascade
   
   requestedById String
-  requestedBy   User      @relation(fields: [requestedById], references: [id])
+  requestedBy   User      @relation(fields: [requestedById], references: [id], onDelete: Cascade) // Adicionado onDelete: Cascade
 }

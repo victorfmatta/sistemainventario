@@ -1,22 +1,31 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { LoaderCircle } from 'lucide-react';
 
-// Tipos para os dados do formulário
+// --- INÍCIO DAS ALTERAÇÕES ---
+// 1. Adicionar 'creatorRole' às props
 interface CreateUserFormProps {
+  creatorRole: 'DIRETOR' | 'COORDENADOR'; // Informa quem está criando o usuário
   onSuccess: () => void;
   onCancel: () => void;
   token: string | null;
 }
+// --- FIM DAS ALTERAÇÕES ---
 
-export const CreateUserForm = ({ onSuccess, onCancel, token }: CreateUserFormProps) => {
+export const CreateUserForm = ({ creatorRole, onSuccess, onCancel, token }: CreateUserFormProps) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<string | undefined>(undefined);
+  
+  // --- INÍCIO DAS ALTERAÇÕES ---
+  // 2. Definir o estado inicial do cargo com base no criador
+  const [role, setRole] = useState<string | undefined>(
+    creatorRole === 'COORDENADOR' ? 'INSTRUTOR' : undefined
+  );
+  // --- FIM DAS ALTERAÇÕES ---
   
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,15 +80,26 @@ export const CreateUserForm = ({ onSuccess, onCancel, token }: CreateUserFormPro
       </div>
       <div className="space-y-2">
         <Label htmlFor="role">Cargo</Label>
-        <Select value={role} onValueChange={setRole} disabled={isLoading}>
+        {/* --- INÍCIO DAS ALTERAÇÕES --- */}
+        {/* 3. Desabilitar o seletor se o criador for um Coordenador */}
+        <Select value={role} onValueChange={setRole} disabled={isLoading || creatorRole === 'COORDENADOR'}>
           <SelectTrigger id="role">
             <SelectValue placeholder="Selecione um cargo..." />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="COORDENADOR">Coordenador</SelectItem>
-            <SelectItem value="INSTRUTOR">Instrutor</SelectItem>
+            {/* 4. Mostrar opções diferentes com base no criador */}
+            {creatorRole === 'DIRETOR' && (
+              <>
+                <SelectItem value="COORDENADOR">Coordenador</SelectItem>
+                <SelectItem value="INSTRUTOR">Instrutor</SelectItem>
+              </>
+            )}
+            {creatorRole === 'COORDENADOR' && (
+              <SelectItem value="INSTRUTOR">Instrutor</SelectItem>
+            )}
           </SelectContent>
         </Select>
+        {/* --- FIM DAS ALTERAÇÕES --- */}
       </div>
 
       {error && <p className="text-sm text-red-500">{error}</p>}

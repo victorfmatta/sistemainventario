@@ -119,7 +119,7 @@ export const AddRequestForm = ({ unitId, onSuccess, onCancel, token }: AddReques
               {availableItems.length > 0 ? (
                 availableItems.map((item) => (
                   <SelectItem key={item.id} value={item.id}>
-                    {item.name} (Estoque: {item.quantity})
+                    {item.name}
                   </SelectItem>
                 ))
               ) : (
