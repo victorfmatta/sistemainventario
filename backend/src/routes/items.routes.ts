@@ -21,9 +21,14 @@ router.get('/', authMiddleware, async (req, res) => {
 });
 
 // Rota para CRIAR um novo item no Estoque Central: POST /api/items
-router.post('/', authMiddleware, async (req, res) => {
+router.post('/', authMiddleware, async (req: any, res) => {
   try {
-    const { name, description, quantity } = req.body;
+    // Permitir criação apenas para DIRETOR
+    if (req.user?.role !== 'DIRETOR') {
+      return res.status(403).json({ message: 'Apenas usuário com papel de DIRETOR pode criar itens.' });
+    }
+
+    const { name, description, unitOfMeasure, internalCode, quantity } = req.body;
 
     if (!name || quantity === undefined) {
       return res.status(400).json({ message: 'Nome e quantidade são obrigatórios.' });
@@ -33,6 +38,8 @@ router.post('/', authMiddleware, async (req, res) => {
       data: {
         name,
         description,
+        unitOfMeasure,
+        internalCode,
         quantity: Number(quantity),
       },
     });
@@ -52,13 +59,15 @@ router.post('/', authMiddleware, async (req, res) => {
 router.put('/:id', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, quantity } = req.body;
+    const { name, description, unitOfMeasure, internalCode, quantity } = req.body;
 
     const updatedItem = await prisma.item.update({
       where: { id },
       data: {
         name,
         description,
+        unitOfMeasure,
+        internalCode,
         quantity: quantity !== undefined ? Number(quantity) : undefined,
       },
     });
@@ -71,27 +80,40 @@ router.put('/:id', authMiddleware, async (req, res) => {
 });
 
 // Rota para EXCLUIR um item do Estoque Central: DELETE /api/items/:id
-router.delete('/:id', authMiddleware, async (req, res) => {
+router.delete('/:id', authMiddleware, async (req: any, res) => {
   try {
     const { id } = req.params;
 
-    // Transação para garantir que o item só seja excluído se não estiver em uso
-    await prisma.$transaction(async (tx) => {
-      const itemInUse = await tx.unitItem.findFirst({ where: { itemId: id } });
-      if (itemInUse) {
-        throw new Error('Não é possível excluir o item, pois ele já faz parte do inventário de uma ou mais unidades.');
-      }
-      
-      // O Prisma já impede a exclusão se houver solicitações ativas,
-      // mas podemos adicionar uma verificação explícita se necessário.
+    // Verificações explícitas antes de tentar excluir
+    const [unitItemsCount, requestsCount, stockEntryItemsCount] = await Promise.all([
+      prisma.unitItem.count({ where: { itemId: id } }),
+      prisma.request.count({ where: { itemId: id } }),
+      prisma.stockEntryItem.count({ where: { itemId: id } }),
+    ]);
 
-      await tx.item.delete({ where: { id } });
-    });
+    const reasons: string[] = [];
+    if (unitItemsCount > 0) reasons.push(`${unitItemsCount} referência(s) em inventários de unidade`);
+    if (requestsCount > 0) reasons.push(`${requestsCount} solicitação(ões)`);
+    if (stockEntryItemsCount > 0) reasons.push(`${stockEntryItemsCount} item(ns) em entradas de estoque`);
+
+    if (reasons.length > 0) {
+      return res.status(400).json({
+        message: `Não é possível excluir o item pois ele possui: ${reasons.join(', ')}. Remova ou ajuste essas referências antes de tentar novamente.`,
+      });
+    }
+
+    await prisma.item.delete({ where: { id } });
 
     res.status(204).send();
   } catch (error: any) {
     console.error('Erro ao excluir item do estoque central:', error);
-    res.status(400).json({ message: error.message || 'Ocorreu um erro no servidor.' });
+
+    // Mapear erros de foreign key para uma mensagem amigável
+    if ((error as any).code === 'P2003' || /foreign key/i.test(error.message || '')) {
+      return res.status(400).json({ message: 'Não é possível excluir o item porque ele está sendo referenciado por outros registros.' });
+    }
+
+    res.status(500).json({ message: 'Ocorreu um erro no servidor.' });
   }
 });
 

@@ -31,6 +31,9 @@ model User {
 
   // Relação para ver a lista de usuários que este usuário criou
   createdUsers User[]    @relation("CreatedUsers")
+
+  // Entradas de estoque registradas por este usuário
+  stockEntries StockEntry[]
   // --- FIM DAS NOVAS ALTERAÇÕES ---
 }
 
@@ -52,12 +55,58 @@ model Unit {
 model Item {
   id          String     @id @default(cuid())
   name        String     @unique
-  description String?
-  quantity    Int        @default(0)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  requests    Request[]
-  unitItems   UnitItem[]
+  description   String?
+  unitOfMeasure String?    // Unidade de medida (Ex: Un, Kg, Litro)
+  internalCode  String?    // Código interno/SKU
+  quantity      Int        @default(0)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  requests      Request[]
+  unitItems     UnitItem[]
+  stockEntryItems StockEntryItem[]
+}
+
+model Supplier {
+  id           String   @id @default(cuid())
+  name         String   // Nome Fantasia
+  businessName String?  // Razão Social
+  cnpj         String?  @unique
+  contact      String?  // Email ou Telefone
+  address      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  stockEntries StockEntry[]
+}
+
+model StockEntry {
+  id            String   @id @default(cuid())
+  invoiceNumber String?
+  issueDate     DateTime @default(now()) // Data de emissão da nota
+  entryDate     DateTime @default(now()) // Data de entrada no sistema
+  
+  supplierId    String?
+  supplier      Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+
+  items         StockEntryItem[]
+  
+  registeredById String
+  registeredBy   User   @relation(fields: [registeredById], references: [id])
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model StockEntryItem {
+  id           String     @id @default(cuid())
+  quantity     Int
+  unitPrice    Float      // Valor unitário na nota
+
+  stockEntryId String
+  stockEntry   StockEntry @relation(fields: [stockEntryId], references: [id], onDelete: Cascade)
+
+  itemId       String
+  item         Item       @relation(fields: [itemId], references: [id])
 }
 
 model UnitItem {

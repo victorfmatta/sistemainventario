@@ -9,14 +9,16 @@ import { LoaderCircle } from 'lucide-react';
 
 // 1. SIMPLIFICAR AS PROPS: REMOVER 'unitId'
 interface AddItemFormProps {
-  onItemAdded: () => void;
+  onItemAdded: (newItem?: any) => void;
   onCancel: () => void;
   token: string | null;
 }
 
 export const AddItemForm = ({ onItemAdded, onCancel, token }: AddItemFormProps) => {
   const [name, setName] = useState('');
-  const [quantity, setQuantity] = useState(0); // A quantidade inicial pode ser 0
+  const [internalCode, setInternalCode] = useState('');
+  const [unitOfMeasure, setUnitOfMeasure] = useState('');
+  const [quantity, setQuantity] = useState<string | number>(''); // Inicia vazio
   const [description, setDescription] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,13 +45,16 @@ export const AddItemForm = ({ onItemAdded, onCancel, token }: AddItemFormProps) 
         // 2. REMOVER 'unitId' DO CORPO DA REQUISIÇÃO
         body: JSON.stringify({
           name,
+          internalCode,
+          unitOfMeasure,
           description,
-          quantity,
-        } ),
+          quantity: Number(quantity),
+        }),
       });
 
       if (response.ok) {
-        onItemAdded();
+        const newItem = await response.json();
+        onItemAdded(newItem);
       } else {
         const data = await response.json();
         setError(data.message || 'Falha ao adicionar o item.');
@@ -73,14 +78,38 @@ export const AddItemForm = ({ onItemAdded, onCancel, token }: AddItemFormProps) 
           disabled={isLoading}
         />
       </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="internalCode">Código Interno/SKU</Label>
+          <Input
+            id="internalCode"
+            value={internalCode}
+            onChange={(e) => setInternalCode(e.target.value)}
+            placeholder="Ex: NTB-001"
+            disabled={isLoading}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="unitOfMeasure">Unidade de Medida</Label>
+          <Input
+            id="unitOfMeasure"
+            value={unitOfMeasure}
+            onChange={(e) => setUnitOfMeasure(e.target.value)}
+            placeholder="Ex: Un, Kg, Lt"
+            disabled={isLoading}
+          />
+        </div>
+      </div>
       <div className="space-y-2">
-        <Label htmlFor="quantity">Quantidade Inicial em Estoque</Label>
+        <Label htmlFor="quantity">Quantidade</Label>
         <Input
           id="quantity"
           type="number"
           value={quantity}
-          onChange={(e) => setQuantity(Number(e.target.value))}
-          min="0" // Permite 0 como quantidade inicial
+          onChange={(e) => setQuantity(e.target.value)}
+          onFocus={(e) => e.target.select()}
+          placeholder="0"
+          min="0"
           disabled={isLoading}
         />
       </div>

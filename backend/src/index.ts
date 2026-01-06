@@ -4,7 +4,9 @@ import authRoutes from './routes/auth.routes';
 import unitsRoutes from './routes/units.routes';
 import itemsRoutes from './routes/items.routes';
 import requestsRoutes from './routes/requests.routes';
-import usersRoutes from './routes/users.routes'; // 1. Importar a nova rota
+import usersRoutes from './routes/users.routes';
+import suppliersRoutes from './routes/suppliers.routes';
+import stockEntriesRoutes from './routes/stockentries.routes';
 
 const app = express();
 const PORT = 3001;
@@ -17,8 +19,10 @@ app.use('/api/auth', authRoutes);
 app.use('/api/units', unitsRoutes);
 app.use('/api/items', itemsRoutes);
 app.use('/api/requests', requestsRoutes);
-app.use('/api/users', usersRoutes); // 2. Adicionar a nova rota
+app.use('/api/users', usersRoutes);
+app.use('/api/suppliers', suppliersRoutes);
+app.use('/api/stock-entries', stockEntriesRoutes);
 
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor rodando na porta http://localhost:${PORT}` );
+  console.log(`🚀 Servidor rodando na porta http://localhost:${PORT}`);
 });

@@ -1,9 +1,14 @@
 import type { Config } from "tailwindcss";
-import tailwindcssAnimate from "tailwindcss-animate"; // 1. Importar o plugin
+import tailwindcssAnimate from "tailwindcss-animate";
 
-const config: Config = { // 2. Definir o objeto de configuração
+const config: Config = {
   darkMode: ["class"],
-  content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
+  content: [
+    "./pages/**/*.{ts,tsx}",
+    "./components/**/*.{ts,tsx}",
+    "./app/**/*.{ts,tsx}",
+    "./src/**/*.{ts,tsx}",
+  ],
   prefix: "",
   theme: {
     container: {
@@ -15,18 +20,36 @@ const config: Config = { // 2. Definir o objeto de configuração
     },
     extend: {
       fontFamily: {
-        sans: ['Poppins', 'sans-serif'],
+        sans: ["Poppins", "sans-serif"],
       },
       colors: {
-        // --- NOSSA ALTERAÇÃO ---
+        /* =====================================================
+           Paleta Institucional (Azul / Púrpura – sóbria)
+           ===================================================== */
+        brand: {
+          blue: {
+            DEFAULT: "#2E3A5F",      // azul profundo elegante
+            soft: "#3A4A78",         // hover / destaque leve
+            muted: "#1F2A44",        // fundos escuros
+          },
+          purple: {
+            DEFAULT: "#4B3F72",      // púrpura institucional
+            soft: "#5C4B8A",         // hover / cards
+            muted: "#352C54",        // fundos profundos
+          },
+        },
+
+        /* =====================================================
+           Ajustes existentes (mantidos)
+           ===================================================== */
         "sidebar-glass": "hsl(var(--card) / 0.6)",
-        // --- FIM DA ALTERAÇÃO ---
 
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
+
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
@@ -55,7 +78,6 @@ const config: Config = { // 2. Definir o objeto de configuração
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // ... (o resto das suas cores)
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -63,8 +85,14 @@ const config: Config = { // 2. Definir o objeto de configuração
         sm: "calc(var(--radius) - 4px)",
       },
       keyframes: {
-        "accordion-down": { from: { height: "0" }, to: { height: "var(--radix-accordion-content-height)" } },
-        "accordion-up": { from: { height: "var(--radix-accordion-content-height)" }, to: { height: "0" } },
+        "accordion-down": {
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
+        },
+        "accordion-up": {
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -72,7 +100,7 @@ const config: Config = { // 2. Definir o objeto de configuração
       },
     },
   },
-  plugins: [tailwindcssAnimate], // 3. Usar o plugin importado
+  plugins: [tailwindcssAnimate],
 };
 
-export default config; // 4. Exportar a configuração
+export default config;

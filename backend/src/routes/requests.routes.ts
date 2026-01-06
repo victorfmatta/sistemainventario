@@ -96,7 +96,7 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res) => {
   } catch (error) {
     console.error('Erro ao criar solicitação:', error);
     if (error instanceof Error) {
-        console.error(error.message);
+      console.error(error.message);
     }
     res.status(500).json({ message: 'Ocorreu um erro no servidor ao criar a solicitação.' });
   }
@@ -125,6 +125,7 @@ router.put('/:id/status', authMiddleware, async (req: AuthenticatedRequest, res)
             where: { id: request.itemId },
             data: { quantity: { decrement: request.quantity } },
           });
+
         } else if (newStatus !== 'CANCELADO') {
           throw new Error('Ação não permitida para este cargo ou status atual.');
         }

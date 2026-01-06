@@ -1,18 +1,38 @@
 import { useEffect, useState } from 'react';
 import { AppSidebar } from '@/components/AppSidebar';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'; // 1. Importar Tooltip
-import { LoaderCircle, MoreHorizontal, Info, BookOpen, Briefcase } from 'lucide-react'; // 2. Importar novos ícones
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
+  LoaderCircle,
+  MoreHorizontal,
+  Info,
+  BookOpen,
+  Briefcase,
+} from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
 import { toast } from 'sonner';
 
 type RequestStatus = 'SOLICITADO' | 'ENVIADO' | 'RECEBIDO' | 'CANCELADO';
 
-// --- INÍCIO DAS ALTERAÇÕES ---
-// 3. Atualizar o tipo Request para incluir os novos campos
 interface Request {
   id: string;
   quantity: number;
@@ -21,16 +41,15 @@ interface Request {
   purpose: 'AULA' | 'PROJETO' | null;
   observation: string | null;
   item: { name: string };
-  requestedBy: { name: string }; // Corrigido
+  requestedBy: { name: string };
   unit: { name: string };
 }
-// --- FIM DAS ALTERAÇÕES ---
 
 const statusVariants: Record<RequestStatus, string> = {
-  SOLICITADO: 'bg-yellow-500 hover:bg-yellow-500/80 text-primary-foreground',
-  ENVIADO: 'bg-blue-500 hover:bg-blue-500/80 text-primary-foreground',
-  RECEBIDO: 'bg-green-500 hover:bg-green-500/80 text-primary-foreground',
-  CANCELADO: 'bg-red-500 hover:bg-red-500/80 text-primary-foreground',
+  SOLICITADO: 'bg-yellow-600/80 text-white',
+  ENVIADO: 'bg-blue-600/80 text-white',
+  RECEBIDO: 'bg-green-600/80 text-white',
+  CANCELADO: 'bg-red-600/80 text-white',
 };
 
 const RequestsPage = () => {
@@ -42,126 +61,263 @@ const RequestsPage = () => {
     if (!token) return;
     try {
       const response = await fetch('http://localhost:3001/api/requests', {
-        headers: { 'Authorization': `Bearer ${token}` },
-      } );
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (response.ok) {
         setRequests(await response.json());
       } else {
-        toast.error("Falha ao buscar solicitações.");
+        toast.error('Falha ao buscar solicitações.');
       }
-    } catch (error) {
-      toast.error("Erro de conexão com o servidor.");
+    } catch {
+      toast.error('Erro de conexão com o servidor.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => { fetchRequests(); }, [token]);
+  useEffect(() => {
+    fetchRequests();
+  }, [token]);
 
-  const handleStatusChange = async (requestId: string, newStatus: RequestStatus) => {
+  const handleStatusChange = async (
+    requestId: string,
+    newStatus: RequestStatus
+  ) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/requests/${requestId}/status`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ status: newStatus } ),
-      });
+      const response = await fetch(
+        `http://localhost:3001/api/requests/${requestId}/status`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ status: newStatus }),
+        }
+      );
       if (response.ok) {
-        toast.success(`Status da solicitação atualizado para ${newStatus}.`);
-        fetchRequests(); // Re-busca os dados para garantir consistência
+        toast.success(`Status atualizado para ${newStatus}.`);
+        fetchRequests();
       } else {
         const errorData = await response.json();
-        toast.error(errorData.message || "Falha ao atualizar o status.");
+        toast.error(errorData.message || 'Falha ao atualizar status.');
       }
-    } catch (error) {
-      toast.error("Erro de conexão ao tentar atualizar o status.");
+    } catch {
+      toast.error('Erro de conexão ao atualizar status.');
     }
   };
 
-  if (isLoading) { /* ... (código de loading sem alteração) ... */ }
+  const canViewDetails =
+    user?.role === 'DIRETOR' || user?.role === 'COORDENADOR';
 
-  // --- INÍCIO DAS ALTERAÇÕES ---
-  // 4. Determinar se o usuário pode ver os detalhes
-  const canViewDetails = user?.role === 'DIRETOR' || user?.role === 'COORDENADOR';
-  // --- FIM DAS ALTERAÇÕES ---
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen w-full bg-gradient-to-br from-brand-blue/30 via-background to-background">
+        <AppSidebar />
+        <main className="flex-1 flex items-center justify-center">
+          <LoaderCircle className="h-10 w-10 animate-spin text-primary" />
+        </main>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex min-h-screen w-full bg-background">
+    <div className="flex min-h-screen w-full bg-gradient-to-br from-brand-blue/30 via-background to-background">
       <AppSidebar />
-      <main className="flex-1 p-8">
+
+      <main className="flex-1 p-10">
         <div className="max-w-7xl mx-auto space-y-8">
-          <h1 className="text-3xl font-bold text-foreground">Todas as Solicitações</h1>
-          <section className="space-y-4">
-            <div className="rounded-lg border border-border overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-secondary hover:bg-secondary">
-                    <TableHead className="text-secondary-foreground">Data</TableHead>
-                    <TableHead className="text-secondary-foreground">Item</TableHead>
-                    <TableHead className="text-secondary-foreground">Qtd.</TableHead>
-                    <TableHead className="text-secondary-foreground">Unidade</TableHead>
-                    <TableHead className="text-secondary-foreground">Solicitante</TableHead>
-                    <TableHead className="text-secondary-foreground">Status</TableHead>
-                    {/* 5. Adicionar nova coluna se o usuário tiver permissão */}
-                    {canViewDetails && <TableHead className="text-secondary-foreground">Detalhes</TableHead>}
-                    <TableHead className="text-secondary-foreground text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {requests.length > 0 ? (
-                    requests.map((request) => {
-                      const availableActions: JSX.Element[] = [];
-                      if (user?.role === 'DIRETOR' || user?.role === 'COORDENADOR') {
-                        if (request.status === 'SOLICITADO') {
-                          availableActions.push(<DropdownMenuItem key="enviar" onClick={() => handleStatusChange(request.id, 'ENVIADO')}>Marcar como Enviado</DropdownMenuItem>);
-                          availableActions.push(<DropdownMenuItem key="cancelar" onClick={() => handleStatusChange(request.id, 'CANCELADO')} className="text-red-500">Cancelar Solicitação</DropdownMenuItem>);
-                        }
-                      } else if (user?.role === 'INSTRUTOR') {
-                        if (request.status === 'ENVIADO') {
-                          availableActions.push(<DropdownMenuItem key="receber" onClick={() => handleStatusChange(request.id, 'RECEBIDO')}>Marcar como Recebido</DropdownMenuItem>);
-                        }
-                      }
+          <header>
+            <h1 className="text-3xl font-bold text-white">
+              Todas as Solicitações
+            </h1>
+            <p className="text-sm text-white/60 mt-1">
+              Acompanhe e gerencie as solicitações de materiais
+            </p>
+          </header>
 
-                      return (
-                        <TableRow key={request.id} className="border-border">
-                          <TableCell className="text-foreground">{new Date(request.createdAt).toLocaleDateString('pt-BR')}</TableCell>
-                          <TableCell className="font-medium text-foreground">{request.item.name}</TableCell>
-                          <TableCell className="text-foreground">{request.quantity}</TableCell>
-                          <TableCell className="text-foreground">{request.unit.name}</TableCell>
-                          <TableCell className="text-foreground">{request.requestedBy.name}</TableCell>
-                          <TableCell><Badge className={statusVariants[request.status]}>{request.status}</Badge></TableCell>
-                          
-                          {/* 6. Renderizar a célula de detalhes */}
-                          {canViewDetails && (
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                {request.purpose === 'AULA' && <Tooltip><TooltipTrigger><BookOpen className="h-4 w-4 text-muted-foreground" /></TooltipTrigger><TooltipContent>Uso em Aula</TooltipContent></Tooltip>}
-                                {request.purpose === 'PROJETO' && <Tooltip><TooltipTrigger><Briefcase className="h-4 w-4 text-muted-foreground" /></TooltipTrigger><TooltipContent>Uso em Projeto</TooltipContent></Tooltip>}
-                                {request.observation && (
-                                  <Tooltip><TooltipTrigger><Info className="h-4 w-4 text-muted-foreground" /></TooltipTrigger><TooltipContent><p className="max-w-xs">{request.observation}</p></TooltipContent></Tooltip>
-                                )}
-                              </div>
-                            </TableCell>
-                          )}
-
-                          <TableCell className="text-right">
-                            {availableActions.length > 0 ? (
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                                <DropdownMenuContent>{availableActions}</DropdownMenuContent>
-                              </DropdownMenu>
-                            ) : (
-                              <span className="text-muted-foreground">-</span>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  ) : (
-                    <TableRow><TableCell colSpan={canViewDetails ? 8 : 7} className="text-center text-muted-foreground h-24">Nenhuma solicitação encontrada.</TableCell></TableRow>
+          <section className="rounded-xl border border-brand-blue/30 bg-brand-blue/40 backdrop-blur-md overflow-hidden shadow-lg">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-brand-blue/60 hover:bg-brand-blue/60">
+                  <TableHead className="text-white">Data</TableHead>
+                  <TableHead className="text-white">Item</TableHead>
+                  <TableHead className="text-white">Qtd.</TableHead>
+                  <TableHead className="text-white">Unidade</TableHead>
+                  <TableHead className="text-white">Solicitante</TableHead>
+                  <TableHead className="text-white">Status</TableHead>
+                  {canViewDetails && (
+                    <TableHead className="text-white">
+                      Detalhes
+                    </TableHead>
                   )}
-                </TableBody>
-              </Table>
-            </div>
+                  <TableHead className="text-white text-right">
+                    Ações
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+
+              <TableBody>
+                {requests.length > 0 ? (
+                  requests.map((request) => {
+                    const actions: JSX.Element[] = [];
+
+                    if (
+                      user?.role === 'DIRETOR' ||
+                      user?.role === 'COORDENADOR'
+                    ) {
+                      if (request.status === 'SOLICITADO') {
+                        actions.push(
+                          <DropdownMenuItem
+                            key="enviar"
+                            onClick={() =>
+                              handleStatusChange(
+                                request.id,
+                                'ENVIADO'
+                              )
+                            }
+                          >
+                            Marcar como Enviado
+                          </DropdownMenuItem>
+                        );
+                        actions.push(
+                          <DropdownMenuItem
+                            key="cancelar"
+                            onClick={() =>
+                              handleStatusChange(
+                                request.id,
+                                'CANCELADO'
+                              )
+                            }
+                            className="text-red-400"
+                          >
+                            Cancelar Solicitação
+                          </DropdownMenuItem>
+                        );
+                      }
+                    } else if (
+                      user?.role === 'INSTRUTOR' &&
+                      request.status === 'ENVIADO'
+                    ) {
+                      actions.push(
+                        <DropdownMenuItem
+                          key="receber"
+                          onClick={() =>
+                            handleStatusChange(
+                              request.id,
+                              'RECEBIDO'
+                            )
+                          }
+                        >
+                          Marcar como Recebido
+                        </DropdownMenuItem>
+                      );
+                    }
+
+                    return (
+                      <TableRow
+                        key={request.id}
+                        className="border-brand-blue/20 hover:bg-white/5"
+                      >
+                        <TableCell className="text-white">
+                          {new Date(
+                            request.createdAt
+                          ).toLocaleDateString('pt-BR')}
+                        </TableCell>
+                        <TableCell className="font-medium text-white">
+                          {request.item.name}
+                        </TableCell>
+                        <TableCell className="text-white">
+                          {request.quantity}
+                        </TableCell>
+                        <TableCell className="text-white">
+                          {request.unit.name}
+                        </TableCell>
+                        <TableCell className="text-white">
+                          {request.requestedBy.name}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            className={statusVariants[request.status]}
+                          >
+                            {request.status}
+                          </Badge>
+                        </TableCell>
+
+                        {canViewDetails && (
+                          <TableCell>
+                            <div className="flex gap-2">
+                              {request.purpose === 'AULA' && (
+                                <Tooltip>
+                                  <TooltipTrigger>
+                                    <BookOpen className="h-4 w-4 text-white/70" />
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    Uso em Aula
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                              {request.purpose === 'PROJETO' && (
+                                <Tooltip>
+                                  <TooltipTrigger>
+                                    <Briefcase className="h-4 w-4 text-white/70" />
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    Uso em Projeto
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                              {request.observation && (
+                                <Tooltip>
+                                  <TooltipTrigger>
+                                    <Info className="h-4 w-4 text-white/70" />
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="max-w-xs">
+                                      {request.observation}
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                            </div>
+                          </TableCell>
+                        )}
+
+                        <TableCell className="text-right">
+                          {actions.length > 0 ? (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="hover:bg-white/10"
+                                >
+                                  <MoreHorizontal className="h-4 w-4 text-white" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent>
+                                {actions}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          ) : (
+                            <span className="text-white/40">-</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                ) : (
+                  <TableRow>
+                    <TableCell
+                      colSpan={canViewDetails ? 8 : 7}
+                      className="text-center text-white/60 h-24"
+                    >
+                      Nenhuma solicitação encontrada.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
           </section>
         </div>
       </main>
