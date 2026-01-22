@@ -24,7 +24,7 @@ export const AddRequestForm = ({ unitId, onSuccess, onCancel, token }: AddReques
   const [isFetchingItems, setIsFetchingItems] = useState(true);
   
   const [selectedItemId, setSelectedItemId] = useState<string | undefined>(undefined);
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState<string>('1');
   
   // --- INÍCIO DAS ALTERAÇÕES ---
   // 2. Adicionar estados para os novos campos
@@ -63,7 +63,8 @@ export const AddRequestForm = ({ unitId, onSuccess, onCancel, token }: AddReques
     setError(null);
 
     // 3. Adicionar validação para o campo 'purpose'
-    if (!selectedItemId || quantity <= 0 || !purpose) {
+    const qty = parseInt(quantity || '0', 10);
+    if (!selectedItemId || qty <= 0 || !purpose) {
       setError('Por favor, preencha todos os campos obrigatórios.');
       setIsSubmitting(false);
       return;
@@ -79,7 +80,7 @@ export const AddRequestForm = ({ unitId, onSuccess, onCancel, token }: AddReques
         // 4. Adicionar os novos campos ao corpo da requisição
         body: JSON.stringify({
           itemId: selectedItemId,
-          quantity,
+          quantity: qty,
           unitId,
           purpose,
           observation,
@@ -144,7 +145,19 @@ export const AddRequestForm = ({ unitId, onSuccess, onCancel, token }: AddReques
 
         <div className="space-y-2">
           <Label htmlFor="quantity">Quantidade</Label>
-          <Input id="quantity" type="number" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} min="1" disabled={isSubmitting} />
+          <Input
+            id="quantity"
+            type="text"
+            inputMode="numeric"
+            pattern="\d*"
+            value={quantity}
+            onChange={(e) => {
+              // permitir apenas dígitos e vazio
+              const raw = e.target.value.replace(/\D/g, '');
+              setQuantity(raw);
+            }}
+            disabled={isSubmitting}
+          />
         </div>
 
         <div className="space-y-2 col-span-2">

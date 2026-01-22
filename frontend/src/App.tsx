@@ -9,6 +9,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import MyUnits from "./pages/MyUnits";
 import InventoryDetails from "./pages/InventoryDetails";
 import NotFound from "./pages/NotFound";
 import RequestsPage from "./pages/Requests";
@@ -36,6 +37,7 @@ const App = () => (
 
             <Route element={<ProtectedRoute />}>
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/my-units" element={<MyUnits />} />
               <Route path="/inventory/:id" element={<InventoryDetails />} />
               <Route path="/requests" element={<RequestsPage />} />
               <Route path="/central-stock" element={<CentralStockPage />} />

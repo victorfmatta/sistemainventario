@@ -18,6 +18,16 @@ import {
     DialogTitle,
     DialogFooter,
 } from "@/components/ui/dialog";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { LoaderCircle, Pencil, Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -39,6 +49,9 @@ const SuppliersPage = () => {
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+
+    // Estado para controlar qual fornecedor está sendo excluído
+    const [supplierToDelete, setSupplierToDelete] = useState<string | null>(null);
 
     // Form states
     const [formData, setFormData] = useState<Partial<Supplier>>({});
@@ -110,11 +123,12 @@ const SuppliersPage = () => {
         }
     };
 
-    const handleDelete = async (id: string) => {
-        if (!confirm("Tem certeza que deseja excluir este fornecedor?")) return;
+    // Função que executa a exclusão de fato após confirmação
+    const confirmDelete = async () => {
+        if (!supplierToDelete) return;
 
         try {
-            const res = await fetch(`http://localhost:3001/api/suppliers/${id}`, {
+            const res = await fetch(`http://localhost:3001/api/suppliers/${supplierToDelete}`, {
                 method: "DELETE",
                 headers: { Authorization: `Bearer ${token}` },
             });
@@ -128,6 +142,8 @@ const SuppliersPage = () => {
             }
         } catch {
             toast.error("Erro de conexão.");
+        } finally {
+            setSupplierToDelete(null); // Fecha o modal
         }
     };
 
@@ -206,10 +222,11 @@ const SuppliersPage = () => {
                                                 >
                                                     <Pencil className="w-4 h-4 text-brand-cyan" />
                                                 </Button>
+                                                {/* Botão de excluir agora apenas seta o ID no estado */}
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    onClick={() => handleDelete(s.id)}
+                                                    onClick={() => setSupplierToDelete(s.id)}
                                                     className="hover:bg-white/10"
                                                 >
                                                     <Trash2 className="w-4 h-4 text-red-400" />
@@ -224,6 +241,7 @@ const SuppliersPage = () => {
                 </div>
             </main>
 
+            {/* Modal de Edição/Criação */}
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                 <DialogContent className="bg-background border-brand-blue/30">
                     <DialogHeader>
@@ -287,6 +305,29 @@ const SuppliersPage = () => {
                     </form>
                 </DialogContent>
             </Dialog>
+
+            {/* Novo Modal de Confirmação de Exclusão (AlertDialog) */}
+            <AlertDialog open={!!supplierToDelete} onOpenChange={(open) => !open && setSupplierToDelete(null)}>
+                <AlertDialogContent className="bg-background border-brand-blue/30">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Esta ação não pode ser desfeita. O fornecedor será removido permanentemente.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setSupplierToDelete(null)}>
+                            Cancelar
+                        </AlertDialogCancel>
+                        <AlertDialogAction 
+                            onClick={confirmDelete}
+                            className="bg-red-600 hover:bg-red-700 text-white border-none"
+                        >
+                            Confirmar Exclusão
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 };

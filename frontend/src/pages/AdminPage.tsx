@@ -150,7 +150,12 @@ const AdminPage = () => {
         u.email.toLowerCase().includes(userSearch.toLowerCase());
 
       const matchRole = roleFilter === "ALL" || u.role === roleFilter;
-      const matchUnit = unitFilter === "ALL" || u.unit?.id === unitFilter;
+
+      // Determinar a unidade efetiva do usuário:
+      // - se o usuário já tem `u.unit` preenchido, usamos isso
+      // - caso contrário, para COORDENADOR, procuramos a unit cuja coordinatorId === u.id
+      const effectiveUnitId = u.unit?.id || units.find((unit) => unit.coordinatorId === u.id)?.id;
+      const matchUnit = unitFilter === "ALL" || effectiveUnitId === unitFilter;
 
       return matchSearch && matchRole && matchUnit;
     });
@@ -396,7 +401,7 @@ const AdminPage = () => {
                           {u.role}
                         </TableCell>
                         <TableCell className="text-white/70">
-                          {u.unit?.name || "-"}
+                          {u.unit?.name || units.find((unit) => unit.coordinatorId === u.id)?.name || "-"}
                         </TableCell>
                         <TableCell className="text-right">
                           {user.role === "DIRETOR" && (
