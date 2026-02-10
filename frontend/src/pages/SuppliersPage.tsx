@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AppSidebar } from "@/components/AppSidebar";
-import { useAuth } from "@/contexts/auth.context"; // token não usado explicitamente mais
+import { useAuth } from "@/contexts/auth.context"; 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -31,7 +31,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { LoaderCircle, Pencil, Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { api } from "@/lib/api"; // <--- IMPORTANTE
+import { api } from "@/lib/api";
 
 interface Supplier {
     id: string;
@@ -56,7 +56,6 @@ const SuppliersPage = () => {
 
     const fetchSuppliers = async () => {
         try {
-            // Usando api ao invés de fetch
             const res = await api("/suppliers");
             if (res.ok) {
                 const data = await res.json();
@@ -80,6 +79,24 @@ const SuppliersPage = () => {
         s.name.toLowerCase().includes(search.toLowerCase())
     );
 
+    // --- FUNÇÃO DE MÁSCARA DO CNPJ ---
+    const handleCnpjChange = (value: string) => {
+        // 1. Remove tudo que não é número
+        value = value.replace(/\D/g, "");
+
+        // 2. Limita a 14 dígitos (tamanho do CNPJ sem formatação)
+        if (value.length > 14) value = value.slice(0, 14);
+
+        // 3. Aplica a formatação passo a passo (00.000.000/0000-00)
+        value = value.replace(/^(\d{2})(\d)/, "$1.$2");
+        value = value.replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3");
+        value = value.replace(/\.(\d{3})(\d)/, ".$1/$2");
+        value = value.replace(/(\d{4})(\d)/, "$1-$2");
+
+        // Atualiza o estado
+        setFormData({ ...formData, cnpj: value });
+    };
+
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
@@ -91,13 +108,11 @@ const SuppliersPage = () => {
         }
 
         try {
-            // URL Relativa
             const endpoint = editingSupplier
                 ? `/suppliers/${editingSupplier.id}`
                 : "/suppliers";
             const method = editingSupplier ? "PUT" : "POST";
 
-            // Usando api
             const res = await api(endpoint, {
                 method,
                 body: JSON.stringify(formData),
@@ -124,7 +139,6 @@ const SuppliersPage = () => {
         if (!supplierToDelete) return;
 
         try {
-            // Usando api
             const res = await api(`/suppliers/${supplierToDelete}`, {
                 method: "DELETE",
             });
@@ -260,15 +274,19 @@ const SuppliersPage = () => {
                                 placeholder="Ex: Tech Distribuidora LTDA"
                             />
                         </div>
+                        
+                        {/* --- CAMPO CNPJ COM MÁSCARA --- */}
                         <div className="space-y-2">
                             <Label htmlFor="cnpj">CNPJ</Label>
                             <Input
                                 id="cnpj"
                                 value={formData.cnpj || ""}
-                                onChange={(e) => setFormData({ ...formData, cnpj: e.target.value })}
+                                onChange={(e) => handleCnpjChange(e.target.value)}
                                 placeholder="00.000.000/0000-00"
+                                maxLength={18} // Limita o tamanho visual
                             />
                         </div>
+
                         <div className="space-y-2">
                             <Label htmlFor="contact">Contato</Label>
                             <Input
