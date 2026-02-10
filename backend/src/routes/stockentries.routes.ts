@@ -18,8 +18,9 @@ const directorOnly = (req: AuthenticatedRequest, res: any, next: any) => {
 // =====================================
 router.post('/', authMiddleware, directorOnly, async (req: AuthenticatedRequest, res) => {
     const { supplierId, invoiceNumber, issueDate, items } = req.body;
-    const { userId } = req.user!;
+    const { userId, companyId } = req.user!;
 
+    if (!companyId) return res.status(400).json({ message: "Empresa não informada." });
     if (!items || !Array.isArray(items) || items.length === 0) {
         return res.status(400).json({ message: 'A entrada deve conter pelo menos um item.' });
     }
@@ -33,6 +34,7 @@ router.post('/', authMiddleware, directorOnly, async (req: AuthenticatedRequest,
                     invoiceNumber,
                     issueDate: issueDate ? new Date(issueDate) : new Date(),
                     registeredById: userId,
+                    companyId: companyId // CORREÇÃO: Usando o ID direto
                 },
             });
 
@@ -42,7 +44,6 @@ router.post('/', authMiddleware, directorOnly, async (req: AuthenticatedRequest,
                     throw new Error(`Item inválido: ${JSON.stringify(item)}`);
                 }
 
-                // Criar o registro do item na entrada
                 await tx.stockEntryItem.create({
                     data: {
                         stockEntryId: entry.id,
@@ -52,14 +53,12 @@ router.post('/', authMiddleware, directorOnly, async (req: AuthenticatedRequest,
                     },
                 });
 
-                // Atualizar o estoque do item
                 await tx.item.update({
                     where: { id: item.itemId },
                     data: {
                         quantity: {
                             increment: item.quantity,
                         },
-                        // Opcional: Atualizar preço de custo médio ou último preço aqui se desejado no futuro
                     },
                 });
             }
@@ -77,9 +76,13 @@ router.post('/', authMiddleware, directorOnly, async (req: AuthenticatedRequest,
 // =====================================
 // LISTAR ENTRADAS
 // =====================================
-router.get('/', authMiddleware, directorOnly, async (req, res) => {
+router.get('/', authMiddleware, directorOnly, async (req: AuthenticatedRequest, res) => {
     try {
+        const companyId = req.user?.companyId;
+        if (!companyId) return res.status(400).json({ message: "Empresa não informada." });
+
         const entries = await prisma.stockEntry.findMany({
+            where: { companyId }, // Filtra por empresa
             include: {
                 supplier: {
                     select: { name: true },
@@ -92,7 +95,7 @@ router.get('/', authMiddleware, directorOnly, async (req, res) => {
                 },
             },
             orderBy: { entryDate: 'desc' },
-            take: 50, // Limite inicial de 50 registros para não pesar
+            take: 50,
         });
         res.status(200).json(entries);
     } catch (error) {

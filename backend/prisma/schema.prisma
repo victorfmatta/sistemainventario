@@ -9,104 +9,151 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// --- NOVO MODEL: EMPRESA ---
+model Company {
+  id        String   @id @default(cuid())
+  name      String   @unique // Ex: "IP Control", "IP Tech"
+  cnpj      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacionamentos
+  users        User[] // Usuários que têm acesso a esta empresa
+  units        Unit[]
+  items        Item[]
+  suppliers    Supplier[]
+  stockEntries StockEntry[]
+  requests     Request[] // Solicitações pertencentes a esta empresa
+
+  // Histórico de transferências (Origem e Destino)
+  transfersOrigin      CompanyTransfer[] @relation("OriginCompany")
+  transfersDestination CompanyTransfer[] @relation("TargetCompany")
+}
+
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  name         String
-  password     String
-  role         String    // DIRETOR, COORDENADOR, INSTRUTOR
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String
+  role      String   // DIRETOR, COORDENADOR, INSTRUTOR
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // --- ALTERAÇÃO: Usuário pertence a uma ou mais empresas ---
+  companies Company[]
+
   managedUnits Unit[]    @relation("CoordinatorUnits")
   requests     Request[]
 
   unitId String?
   unit   Unit?   @relation("Instructors", fields: [unitId], references: [id])
 
-  // --- INÍCIO DAS NOVAS ALTERAÇÕES ---
-  // Relação para rastrear quem criou este usuário
   createdById String?
-  createdBy   User?     @relation("CreatedUsers", fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy   User?   @relation("CreatedUsers", fields: [createdById], references: [id], onDelete: SetNull)
 
-  // Relação para ver a lista de usuários que este usuário criou
-  createdUsers User[]    @relation("CreatedUsers")
-
-  // Entradas de estoque registradas por este usuário
+  createdUsers User[]       @relation("CreatedUsers")
   stockEntries StockEntry[]
-  // --- FIM DAS NOVAS ALTERAÇÕES ---
+  
+  // Registro de transferências feitas por este usuário (Diretor)
+  transfersMade CompanyTransfer[]
 }
 
 model Unit {
-  id             String     @id @default(cuid())
-  name           String     @unique
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
-  
-  coordinatorId  String?
-  coordinator    User?      @relation("CoordinatorUnits", fields: [coordinatorId], references: [id], onDelete: SetNull) // Adicionado onDelete: SetNull
-  
-  instructors    User[]     @relation("Instructors")
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // --- ALTERAÇÃO: Unidade pertence a uma empresa ---
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  coordinatorId String?
+  coordinator   User?   @relation("CoordinatorUnits", fields: [coordinatorId], references: [id], onDelete: SetNull)
+
+  instructors User[] @relation("Instructors")
 
   inventoryItems UnitItem[]
   requests       Request[]
+
+  // Nome da unidade deve ser único apenas DENTRO da empresa
+  @@unique([name, companyId])
 }
 
 model Item {
-  id          String     @id @default(cuid())
-  name        String     @unique
+  id            String   @id @default(cuid())
+  name          String
   description   String?
-  unitOfMeasure String?    // Unidade de medida (Ex: Un, Kg, Litro)
-  internalCode  String?    // Código interno/SKU
-  quantity      Int        @default(0)
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-  requests      Request[]
-  unitItems     UnitItem[]
+  unitOfMeasure String?
+  internalCode  String?
+  quantity      Int      @default(0) // Estoque Central desta empresa
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // --- ALTERAÇÃO: Item pertence a uma empresa ---
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  requests        Request[]
+  unitItems       UnitItem[]
   stockEntryItems StockEntryItem[]
+
+  // Nome do item deve ser único apenas DENTRO da empresa
+  @@unique([name, companyId])
 }
 
 model Supplier {
   id           String   @id @default(cuid())
-  name         String   // Nome Fantasia
-  businessName String?  // Razão Social
-  cnpj         String?  @unique
-  contact      String?  // Email ou Telefone
+  name         String
+  businessName String?
+  cnpj         String?
+  contact      String?
   address      String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  // --- ALTERAÇÃO: Fornecedor pertence a uma empresa ---
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
   stockEntries StockEntry[]
+  
+  // CNPJ único apenas por empresa (duas empresas podem ter o mesmo fornecedor cadastrado separadamente)
+  @@unique([cnpj, companyId])
 }
 
 model StockEntry {
   id            String   @id @default(cuid())
   invoiceNumber String?
-  issueDate     DateTime @default(now()) // Data de emissão da nota
-  entryDate     DateTime @default(now()) // Data de entrada no sistema
-  
-  supplierId    String?
-  supplier      Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  issueDate     DateTime @default(now())
+  entryDate     DateTime @default(now())
 
-  items         StockEntryItem[]
-  
+  // --- ALTERAÇÃO: Entrada de estoque pertence a uma empresa ---
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  supplierId String?
+  supplier   Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+
+  items StockEntryItem[]
+
   registeredById String
   registeredBy   User   @relation(fields: [registeredById], references: [id])
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model StockEntryItem {
-  id           String     @id @default(cuid())
-  quantity     Int
-  unitPrice    Float      // Valor unitário na nota
+  id        String @id @default(cuid())
+  quantity  Int
+  unitPrice Float
 
   stockEntryId String
   stockEntry   StockEntry @relation(fields: [stockEntryId], references: [id], onDelete: Cascade)
 
-  itemId       String
-  item         Item       @relation(fields: [itemId], references: [id])
+  itemId String
+  item   Item   @relation(fields: [itemId], references: [id])
 }
 
 model UnitItem {
@@ -121,20 +168,44 @@ model UnitItem {
 }
 
 model Request {
-  id            String    @id @default(cuid())
-  quantity      Int
-  status        String    @default("SOLICITADO")
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  purpose       String?
-  observation   String?
-  
-  itemId        String
-  item          Item      @relation(fields: [itemId], references: [id], onDelete: Cascade) // Adicionado onDelete: Cascade
-  
-  unitId        String
-  unit          Unit      @relation(fields: [unitId], references: [id], onDelete: Cascade) // Adicionado onDelete: Cascade
-  
+  id          String   @id @default(cuid())
+  quantity    Int
+  status      String   @default("SOLICITADO")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  purpose     String?
+  observation String?
+
+  // --- ALTERAÇÃO: Solicitação pertence a uma empresa (para facilitar filtros) ---
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  itemId String
+  item   Item   @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  unitId String
+  unit   Unit   @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
   requestedById String
-  requestedBy   User      @relation(fields: [requestedById], references: [id], onDelete: Cascade) // Adicionado onDelete: Cascade
+  requestedBy   User   @relation(fields: [requestedById], references: [id], onDelete: Cascade)
+}
+
+// --- NOVO MODEL: Histórico de Transferências entre Empresas ---
+model CompanyTransfer {
+  id            String   @id @default(cuid())
+  
+  originCompanyId String
+  originCompany   Company @relation("OriginCompany", fields: [originCompanyId], references: [id])
+  
+  targetCompanyId String
+  targetCompany   Company @relation("TargetCompany", fields: [targetCompanyId], references: [id])
+
+  itemName      String   // Nome do item transferido (snapshot, para histórico)
+  quantity      Int
+  justification String?  // Justificativa obrigatória/opcional do Diretor
+  
+  responsibleId String
+  responsible   User     @relation(fields: [responsibleId], references: [id])
+
+  createdAt     DateTime @default(now())
 }

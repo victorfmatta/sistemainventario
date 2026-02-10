@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   LayoutDashboard,
   Building2,
@@ -8,21 +9,25 @@ import {
   Truck,
   PackagePlus,
   History,
+  ChevronLeft,
+  ChevronRight,
+  User,
 } from "lucide-react";
 import { NavLink as RouterNavLink, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/auth.context";
 import { Button } from "./ui/button";
+import { CompanySelector } from "./CompanySelector";
 
 const navigationItems = [
   {
     title: "Dashboard",
     url: "/dashboard",
     icon: LayoutDashboard,
-    roles: ["DIRETOR", "COORDENADOR", "INSTRUTOR"],
+    roles: ["DIRETOR"],
   },
   {
     title: "Minhas Unidades",
-    url: "/dashboard",
+    url: "/my-units",
     icon: Building2,
     roles: ["DIRETOR", "COORDENADOR", "INSTRUTOR"],
   },
@@ -67,34 +72,74 @@ const navigationItems = [
 export function AppSidebar() {
   const location = useLocation();
   const { user, logout } = useAuth();
+  
+  // Verifica se existe uma preferência salva. Se não existir, começa aberto (false).
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    const saved = localStorage.getItem("sidebar_collapsed");
+    return saved === "true";
+  });
+
+  const toggleSidebar = () => {
+    const newState = !isCollapsed;
+    setIsCollapsed(newState);
+    localStorage.setItem("sidebar_collapsed", String(newState));
+  };
 
   return (
-    <aside className="w-64 h-screen sticky top-0 flex-shrink-0 flex flex-col
-      bg-brand-blue/40 backdrop-blur-xl
-      border-r border-brand-blue/30
-      shadow-xl"
+    <aside
+      className={`
+        h-screen sticky top-0 flex-shrink-0 flex flex-col
+        bg-brand-blue/40 backdrop-blur-xl
+        border-r border-brand-blue/30
+        shadow-xl
+        transition-all duration-300 ease-in-out
+        ${isCollapsed ? "w-20" : "w-64"}
+      `}
     >
-      {/* Header */}
-      <div className="p-6 border-b border-brand-blue/30">
-        <h2 className="text-xl font-bold text-white tracking-wide">
-          Inventário
-        </h2>
+      {/* Header & Toggle */}
+      <div className={`flex items-center p-4 border-b border-brand-blue/30 h-[73px] ${isCollapsed ? "justify-center" : "justify-between"}`}>
+        {!isCollapsed && (
+          <h2 className="text-xl font-bold text-white tracking-wide whitespace-nowrap overflow-hidden">
+            Inventário
+          </h2>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={toggleSidebar}
+          className="text-white/60 hover:text-white hover:bg-white/10 h-8 w-8"
+        >
+          {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
+        </Button>
       </div>
 
       {/* User info */}
-      <div className="p-6 border-b border-brand-blue/30">
-        <div className="space-y-1">
-          <p className="text-sm font-semibold text-white">
-            {user?.name || "Usuário"}
-          </p>
-          <p className="text-xs text-white/60">
-            {user?.role || "Cargo"}
-          </p>
+      <div className={`p-4 border-b border-brand-blue/30 flex items-center ${isCollapsed ? "justify-center" : "gap-3"}`}>
+        <div className="w-10 h-10 rounded-full bg-brand-blue-soft/50 flex items-center justify-center border border-white/10 flex-shrink-0">
+            <User className="w-5 h-5 text-white" />
         </div>
+        
+        {!isCollapsed && (
+          <div className="space-y-0.5 overflow-hidden">
+            <p className="text-sm font-semibold text-white truncate">
+              {user?.name || "Usuário"}
+            </p>
+            <p className="text-xs text-white/60 truncate uppercase">
+              {user?.role || "Cargo"}
+            </p>
+          </div>
+        )}
       </div>
 
+      {/* Seletor de Empresa (Apenas se expandido) */}
+      {!isCollapsed && (
+        <div className="pt-4 px-2">
+            <CompanySelector />
+        </div>
+      )}
+
       {/* Navigation */}
-      <nav className="flex-1 p-4">
+      <nav className="flex-1 p-3 overflow-y-auto overflow-x-hidden">
         <ul className="space-y-2">
           {navigationItems
             .filter((item) => user && item.roles.includes(user.role))
@@ -103,22 +148,27 @@ export function AppSidebar() {
               const isActive = location.pathname === item.url;
 
               return (
-                <li key={item.title}>
+                <li key={item.title} title={isCollapsed ? item.title : ""}>
                   <RouterNavLink
                     to={item.url}
                     className={`
-                      flex items-center gap-3 px-4 py-3 rounded-xl
-                      transition-all duration-200
-                      ${isActive
-                        ? "bg-gradient-to-r from-brand-blue-soft to-brand-purple text-white shadow-md"
-                        : "text-white/80 hover:bg-white/10"
+                      flex items-center rounded-xl
+                      transition-all duration-200 group
+                      ${isCollapsed ? "justify-center p-3" : "gap-3 px-4 py-3"}
+                      ${
+                        isActive
+                          ? "bg-gradient-to-r from-brand-blue-soft to-brand-purple text-white shadow-md"
+                          : "text-white/80 hover:bg-white/10"
                       }
                     `}
                   >
-                    <Icon className="w-5 h-5" />
-                    <span className="text-sm font-medium">
-                      {item.title}
-                    </span>
+                    <Icon className={`w-5 h-5 flex-shrink-0 ${!isActive && "group-hover:text-white"}`} />
+                    
+                    {!isCollapsed && (
+                      <span className="text-sm font-medium whitespace-nowrap">
+                        {item.title}
+                      </span>
+                    )}
                   </RouterNavLink>
                 </li>
               );
@@ -127,15 +177,17 @@ export function AppSidebar() {
       </nav>
 
       {/* Logout */}
-      <div className="p-4 border-t border-brand-blue/30">
+      <div className="p-3 border-t border-brand-blue/30">
         <Button
           onClick={logout}
           variant="ghost"
-          className="w-full flex items-center justify-start gap-3
-            text-white/80 hover:text-white hover:bg-white/10"
+          className={`w-full flex items-center text-white/80 hover:text-white hover:bg-white/10
+            ${isCollapsed ? "justify-center px-0" : "justify-start gap-3"}
+          `}
+          title={isCollapsed ? "Sair" : ""}
         >
-          <LogOut className="w-5 h-5" />
-          <span className="text-sm font-medium">Sair</span>
+          <LogOut className="w-5 h-5 flex-shrink-0" />
+          {!isCollapsed && <span className="text-sm font-medium">Sair</span>}
         </Button>
       </div>
     </aside>

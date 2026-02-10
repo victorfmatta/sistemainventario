@@ -83,11 +83,12 @@ const Login = () => {
         {/* 5. Associar a referência ao nosso card */}
         <div ref={tiltRef} className="w-full max-w-md space-y-6 rounded-2xl bg-white/10 backdrop-blur-lg border border-white/20 shadow-2xl p-8">
           
-          <div className="text-center">
-            <h1 className="text-3xl font-bold text-white mb-2">
+          <div className="text-center space-y-1">
+            <h1 className="text-3xl font-bold text-white">
               Login
             </h1>
-            <p className="text-white/70 text-sm">Bem-vindo ao Sistema de Inventário</p>
+            <img src="/StockHUB_SemFundo.png" alt="StockHUB" className="mx-auto w-20 h-auto" />
+            <p className="text-white/70 text-sm">Bem-vindo ao <strong>StockHub</strong>, <i>seu sistema de Inventário.</i></p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">

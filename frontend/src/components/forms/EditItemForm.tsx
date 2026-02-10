@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { LoaderCircle } from 'lucide-react';
+import { api } from "@/lib/api"; // <--- IMPORTANTE
 
 interface Item {
   id: string;
@@ -21,7 +22,7 @@ interface EditItemFormProps {
   token: string | null;
 }
 
-export const EditItemForm = ({ item, onItemUpdated, onCancel, token }: EditItemFormProps) => {
+export const EditItemForm = ({ item, onItemUpdated, onCancel }: EditItemFormProps) => {
   const [name, setName] = useState(item.name);
   const [internalCode, setInternalCode] = useState(item.internalCode || '');
   const [unitOfMeasure, setUnitOfMeasure] = useState(item.unitOfMeasure || '');
@@ -36,13 +37,16 @@ export const EditItemForm = ({ item, onItemUpdated, onCancel, token }: EditItemF
     setError(null);
 
     try {
-      const response = await fetch(`http://localhost:3001/api/items/${item.id}`, {
+      // Substituído fetch por api
+      const response = await api(`/items/${item.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ name, internalCode, unitOfMeasure, description, quantity: Number(quantity) }),
+        body: JSON.stringify({ 
+            name, 
+            internalCode, 
+            unitOfMeasure, 
+            description, 
+            quantity: Number(quantity) 
+        }),
       });
 
       if (response.ok) {
@@ -86,7 +90,6 @@ export const EditItemForm = ({ item, onItemUpdated, onCancel, token }: EditItemF
       </div>
       <div className="space-y-2">
         <Label htmlFor="quantity">Quantidade em Estoque</Label>
-        {/* A única alteração é permitir 0 como quantidade */}
         <Input
           id="quantity"
           type="number"

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AppSidebar } from "@/components/AppSidebar";
-import { useAuth } from "@/contexts/auth.context";
+import { useAuth } from "@/contexts/auth.context"; // token não é mais necessário explicitamente
 import { Button } from "@/components/ui/button";
 import {
     Table,
@@ -19,6 +19,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import { api } from "@/lib/api"; // <--- IMPORTANTE
 
 interface StockEntry {
     id: string;
@@ -44,22 +45,25 @@ interface StockEntryDetail extends StockEntry {
 }
 
 const StockHistoryPage = () => {
-    const { token } = useAuth();
+    // const { token } = useAuth(); // Não precisamos mais do token aqui
     const [entries, setEntries] = useState<StockEntry[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedEntry, setSelectedEntry] = useState<StockEntryDetail | null>(null);
     const [isDetailLoading, setIsDetailLoading] = useState(false);
 
     const fetchEntries = async () => {
+        setIsLoading(true);
         try {
-            const res = await fetch("http://localhost:3001/api/stock-entries", {
-                headers: { Authorization: `Bearer ${token} ` },
-            });
+            // Substituído fetch por api
+            const res = await api("/stock-entries");
+            
             if (res.ok) {
                 setEntries(await res.json());
+            } else {
+                toast.error("Erro ao carregar histórico.");
             }
         } catch {
-            toast.error("Erro ao carregar histórico.");
+            toast.error("Erro de conexão ao carregar histórico.");
         } finally {
             setIsLoading(false);
         }
@@ -68,9 +72,9 @@ const StockHistoryPage = () => {
     const handleViewDetails = async (id: string) => {
         setIsDetailLoading(true);
         try {
-            const res = await fetch(`http://localhost:3001/api/stock-entries/${id}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            // Substituído fetch por api
+            const res = await api(`/stock-entries/${id}`);
+            
             if (res.ok) {
                 setSelectedEntry(await res.json());
             } else {
@@ -85,7 +89,7 @@ const StockHistoryPage = () => {
 
     useEffect(() => {
         fetchEntries();
-    }, [token]);
+    }, []); // Removemos a dependência do token
 
     return (
         <div className="flex min-h-screen w-full bg-gradient-to-br from-brand-blue/30 via-background to-background">
@@ -121,7 +125,7 @@ const StockHistoryPage = () => {
                                 ) : entries.length === 0 ? (
                                     <TableRow>
                                         <TableCell colSpan={6} className="h-24 text-center text-white/50">
-                                            Nenhuma entrada registrada.
+                                            Nenhuma entrada registrada nesta empresa.
                                         </TableCell>
                                     </TableRow>
                                 ) : (
@@ -149,7 +153,12 @@ const StockHistoryPage = () => {
                                                     onClick={() => handleViewDetails(entry.id)}
                                                     className="hover:bg-white/10 text-brand-cyan hover:text-brand-cyan"
                                                 >
-                                                    <FileText className="w-4 h-4 mr-2" /> Detalhes
+                                                    {isDetailLoading && selectedEntry?.id === entry.id ? (
+                                                         <LoaderCircle className="w-4 h-4 mr-2 animate-spin" />
+                                                    ) : (
+                                                         <FileText className="w-4 h-4 mr-2" />
+                                                    )}
+                                                    Detalhes
                                                 </Button>
                                             </TableCell>
                                         </TableRow>
@@ -171,43 +180,43 @@ const StockHistoryPage = () => {
                             <div className="grid grid-cols-2 gap-4 text-sm">
                                 <div>
                                     <p className="text-muted-foreground">Fornecedor</p>
-                                    <p className="font-medium">{selectedEntry.supplier?.name || "Não informado"}</p>
+                                    <p className="font-medium text-white">{selectedEntry.supplier?.name || "Não informado"}</p>
                                 </div>
                                 <div>
                                     <p className="text-muted-foreground">Nota Fiscal</p>
-                                    <p className="font-medium">{selectedEntry.invoiceNumber || "S/N"}</p>
+                                    <p className="font-medium text-white">{selectedEntry.invoiceNumber || "S/N"}</p>
                                 </div>
                                 <div>
                                     <p className="text-muted-foreground">Data Emissão</p>
-                                    <p className="font-medium">{format(new Date(selectedEntry.issueDate), "dd/MM/yyyy")}</p>
+                                    <p className="font-medium text-white">{format(new Date(selectedEntry.issueDate), "dd/MM/yyyy")}</p>
                                 </div>
                                 <div>
                                     <p className="text-muted-foreground">Registrado por</p>
-                                    <p className="font-medium">{selectedEntry.registeredBy.name}</p>
+                                    <p className="font-medium text-white">{selectedEntry.registeredBy.name}</p>
                                 </div>
                             </div>
 
-                            <div className="border rounded-md">
+                            <div className="border border-brand-blue/20 rounded-md overflow-hidden">
                                 <Table>
                                     <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Produto</TableHead>
-                                            <TableHead>SKU</TableHead>
-                                            <TableHead className="text-right">Qtd</TableHead>
-                                            <TableHead className="text-right">Valor Unit.</TableHead>
-                                            <TableHead className="text-right">Total</TableHead>
+                                        <TableRow className="bg-brand-blue/10">
+                                            <TableHead className="text-white">Produto</TableHead>
+                                            <TableHead className="text-white">SKU</TableHead>
+                                            <TableHead className="text-right text-white">Qtd</TableHead>
+                                            <TableHead className="text-right text-white">Valor Unit.</TableHead>
+                                            <TableHead className="text-right text-white">Total</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {selectedEntry.items.map(item => (
                                             <TableRow key={item.id}>
-                                                <TableCell>{item.item.name}</TableCell>
-                                                <TableCell>{item.item.internalCode || "-"}</TableCell>
-                                                <TableCell className="text-right">{item.quantity} {item.item.unitOfMeasure}</TableCell>
-                                                <TableCell className="text-right">
+                                                <TableCell className="text-white">{item.item.name}</TableCell>
+                                                <TableCell className="text-white/70">{item.item.internalCode || "-"}</TableCell>
+                                                <TableCell className="text-right text-white">{item.quantity} {item.item.unitOfMeasure}</TableCell>
+                                                <TableCell className="text-right text-white">
                                                     {item.unitPrice.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                                 </TableCell>
-                                                <TableCell className="text-right">
+                                                <TableCell className="text-right text-white">
                                                     {(item.quantity * item.unitPrice).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                                 </TableCell>
                                             </TableRow>

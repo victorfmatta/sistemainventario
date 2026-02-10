@@ -4,31 +4,39 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { LoaderCircle } from 'lucide-react';
+import { api } from "@/lib/api"; 
+import { useAuth } from "@/contexts/auth.context";
 
-// --- INÍCIO DAS ALTERAÇÕES ---
-// 1. Adicionar 'creatorRole' às props
 interface CreateUserFormProps {
-  creatorRole: 'DIRETOR' | 'COORDENADOR'; // Informa quem está criando o usuário
+  creatorRole: 'DIRETOR' | 'COORDENADOR';
   onSuccess: () => void;
   onCancel: () => void;
   token: string | null;
 }
-// --- FIM DAS ALTERAÇÕES ---
 
-export const CreateUserForm = ({ creatorRole, onSuccess, onCancel, token }: CreateUserFormProps) => {
+export const CreateUserForm = ({ creatorRole, onSuccess, onCancel }: CreateUserFormProps) => {
+  const { user } = useAuth(); // Pegamos o usuário logado para ver as empresas dele
+  
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   
-  // --- INÍCIO DAS ALTERAÇÕES ---
-  // 2. Definir o estado inicial do cargo com base no criador
   const [role, setRole] = useState<string | undefined>(
     creatorRole === 'COORDENADOR' ? 'INSTRUTOR' : undefined
   );
-  // --- FIM DAS ALTERAÇÕES ---
+
+  // Novo estado para a empresa selecionada
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string | undefined>(undefined);
   
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Tenta selecionar automaticamente a primeira empresa da lista
+  useEffect(() => {
+    if (user?.companies && user.companies.length > 0) {
+      setSelectedCompanyId(user.companies[0].id);
+    }
+  }, [user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,14 +49,23 @@ export const CreateUserForm = ({ creatorRole, onSuccess, onCancel, token }: Crea
       return;
     }
 
+    if (!selectedCompanyId) {
+      setError('Por favor, selecione a empresa para este usuário.');
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      const response = await fetch('http://localhost:3001/api/users', {
+      const response = await api('/users', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ name, email, password, role } ),
+        // Aqui está o segredo: enviamos o companyId junto com os dados
+        body: JSON.stringify({ 
+          name, 
+          email, 
+          password, 
+          role,
+          companyId: selectedCompanyId 
+        }),
       });
 
       if (response.ok) {
@@ -66,6 +83,27 @@ export const CreateUserForm = ({ creatorRole, onSuccess, onCancel, token }: Crea
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* SELEÇÃO DE EMPRESA */}
+      <div className="space-y-2">
+        <Label htmlFor="company">Empresa do Usuário</Label>
+        <Select 
+            value={selectedCompanyId} 
+            onValueChange={setSelectedCompanyId} 
+            disabled={isLoading || !user?.companies?.length}
+        >
+          <SelectTrigger id="company">
+            <SelectValue placeholder="Selecione a empresa..." />
+          </SelectTrigger>
+          <SelectContent>
+            {user?.companies?.map((company) => (
+                <SelectItem key={company.id} value={company.id}>
+                    {company.name}
+                </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       <div className="space-y-2">
         <Label htmlFor="name">Nome Completo</Label>
         <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: João da Silva" disabled={isLoading} />
@@ -80,14 +118,11 @@ export const CreateUserForm = ({ creatorRole, onSuccess, onCancel, token }: Crea
       </div>
       <div className="space-y-2">
         <Label htmlFor="role">Cargo</Label>
-        {/* --- INÍCIO DAS ALTERAÇÕES --- */}
-        {/* 3. Desabilitar o seletor se o criador for um Coordenador */}
         <Select value={role} onValueChange={setRole} disabled={isLoading || creatorRole === 'COORDENADOR'}>
           <SelectTrigger id="role">
             <SelectValue placeholder="Selecione um cargo..." />
           </SelectTrigger>
           <SelectContent>
-            {/* 4. Mostrar opções diferentes com base no criador */}
             {creatorRole === 'DIRETOR' && (
               <>
                 <SelectItem value="COORDENADOR">Coordenador</SelectItem>
@@ -99,7 +134,6 @@ export const CreateUserForm = ({ creatorRole, onSuccess, onCancel, token }: Crea
             )}
           </SelectContent>
         </Select>
-        {/* --- FIM DAS ALTERAÇÕES --- */}
       </div>
 
       {error && <p className="text-sm text-red-500">{error}</p>}

@@ -8,10 +8,16 @@ const prisma = new PrismaClient();
 // Rota GET para buscar solicitações com base no cargo e filtros
 router.get('/', authMiddleware, async (req: AuthenticatedRequest, res) => {
   try {
-    const { userId, role } = req.user!;
+    const { userId, role, companyId } = req.user!;
     const { status, unitId, search } = req.query;
 
-    let whereClause: Prisma.RequestWhereInput = {};
+    if (!companyId) {
+      return res.status(400).json({ message: "Contexto de empresa obrigatório." });
+    }
+
+    let whereClause: Prisma.RequestWhereInput = {
+      companyId: companyId
+    };
 
     if (role === 'COORDENADOR') {
       const managedUnits = await prisma.unit.findMany({
@@ -20,6 +26,7 @@ router.get('/', authMiddleware, async (req: AuthenticatedRequest, res) => {
       });
       const managedUnitIds = managedUnits.map(unit => unit.id);
       whereClause = {
+        ...whereClause,
         unitId: { in: managedUnitIds },
       };
     } else if (role === 'INSTRUTOR') {
@@ -29,10 +36,11 @@ router.get('/', authMiddleware, async (req: AuthenticatedRequest, res) => {
       });
       if (instructorUser?.unitId) {
         whereClause = {
+          ...whereClause,
           unitId: instructorUser.unitId,
         };
       } else {
-        whereClause = { id: '-1' };
+        whereClause = { ...whereClause, id: '-1' };
       }
     }
 
@@ -50,7 +58,6 @@ router.get('/', authMiddleware, async (req: AuthenticatedRequest, res) => {
       whereClause.item = {
         name: {
           contains: search,
-          // --- CORREÇÃO: A linha 'mode: "insensitive"' foi removida ---
         },
       };
     }
@@ -75,8 +82,9 @@ router.get('/', authMiddleware, async (req: AuthenticatedRequest, res) => {
 router.post('/', authMiddleware, async (req: AuthenticatedRequest, res) => {
   try {
     const { itemId, quantity, unitId, purpose, observation } = req.body;
-    const { userId } = req.user!;
+    const { userId, companyId } = req.user!;
 
+    if (!companyId) return res.status(400).json({ message: "Empresa não informada." });
     if (!itemId || !quantity || !unitId || !userId) {
       return res.status(400).json({ message: 'Dados da solicitação incompletos.' });
     }
@@ -90,6 +98,7 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res) => {
         requestedById: userId,
         itemId,
         unitId,
+        companyId: companyId // CORREÇÃO: Usando o ID direto
       },
     });
     res.status(201).json(newRequest);

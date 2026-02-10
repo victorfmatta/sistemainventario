@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
 import { toast } from 'sonner';
+import { api } from "@/lib/api"; // <--- IMPORTANTE
 
 type RequestStatus = 'SOLICITADO' | 'ENVIADO' | 'RECEBIDO' | 'CANCELADO';
 
@@ -53,16 +54,24 @@ const statusVariants: Record<RequestStatus, string> = {
 };
 
 const RequestsPage = () => {
-  const { token, user } = useAuth();
+  const { user } = useAuth(); // token não é mais necessário aqui
   const [requests, setRequests] = useState<Request[]>([]);
+  const [filteredRequests, setFilteredRequests] = useState<Request[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Filtros
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+  const [debouncedQuery, setDebouncedQuery] = useState<string>('');
 
   const fetchRequests = async () => {
-    if (!token) return;
+    setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:3001/api/requests', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      // Substituído fetch por api
+      const response = await api('/requests');
+      
       if (response.ok) {
         setRequests(await response.json());
       } else {
@@ -77,24 +86,57 @@ const RequestsPage = () => {
 
   useEffect(() => {
     fetchRequests();
-  }, [token]);
+  }, []); // Sem dependência de token
+
+  // Debounce para o campo de busca
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(searchQuery), 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  // Lógica de Filtro no Cliente
+  useEffect(() => {
+    let result = requests.slice();
+    
+    if (statusFilter !== 'ALL') {
+      result = result.filter((r) => r.status === statusFilter);
+    }
+    
+    if (debouncedQuery.trim() !== '') {
+      const q = debouncedQuery.trim().toLowerCase();
+      result = result.filter(
+        (r) =>
+          r.item.name.toLowerCase().includes(q) ||
+          r.requestedBy.name.toLowerCase().includes(q) ||
+          (r.unit?.name || '').toLowerCase().includes(q)
+      );
+    }
+    
+    if (startDate) {
+      const sd = new Date(startDate);
+      result = result.filter((r) => new Date(r.createdAt) >= sd);
+    }
+    
+    if (endDate) {
+      const ed = new Date(endDate);
+      ed.setHours(23, 59, 59, 999);
+      result = result.filter((r) => new Date(r.createdAt) <= ed);
+    }
+    
+    setFilteredRequests(result);
+  }, [requests, statusFilter, debouncedQuery, startDate, endDate]);
 
   const handleStatusChange = async (
     requestId: string,
     newStatus: RequestStatus
   ) => {
     try {
-      const response = await fetch(
-        `http://localhost:3001/api/requests/${requestId}/status`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ status: newStatus }),
-        }
-      );
+      // Substituído fetch por api
+      const response = await api(`/requests/${requestId}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: newStatus }),
+      });
+
       if (response.ok) {
         toast.success(`Status atualizado para ${newStatus}.`);
         fetchRequests();
@@ -136,6 +178,68 @@ const RequestsPage = () => {
             </p>
           </header>
 
+          {/* Filtros visíveis para Diretor, Coordenador e Instrutor */}
+          {(user?.role === 'DIRETOR' || user?.role === 'COORDENADOR' || user?.role === 'INSTRUTOR') && (
+            <div className="flex gap-3 items-center mt-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <label className="text-white/80 text-sm">Status</label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="rounded-md bg-white/5 text-white px-3 py-2 appearance-none"
+                  style={{ color: '#fff' }}
+                >
+                  <option value="ALL" className="text-black">Todos</option>
+                  <option value="SOLICITADO" className="text-black">Solicitado</option>
+                  <option value="ENVIADO" className="text-black">Enviado</option>
+                  <option value="RECEBIDO" className="text-black">Recebido</option>
+                  <option value="CANCELADO" className="text-black">Cancelado</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label className="text-white/80 text-sm">Período</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="rounded-md bg-white/5 text-white/90 px-3 py-2"
+                />
+                <span className="text-white/60">até</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="rounded-md bg-white/5 text-white/90 px-3 py-2"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 flex-1 min-w-[220px]">
+                <input
+                  type="text"
+                  placeholder="Buscar por item, solicitante ou unidade"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full rounded-md bg-white/5 text-white/90 px-3 py-2"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setStatusFilter('ALL');
+                    setSearchQuery('');
+                    setStartDate('');
+                    setEndDate('');
+                  }}
+                >
+                  Limpar
+                </Button>
+              </div>
+            </div>
+          )}
+
           <section className="rounded-xl border border-brand-blue/30 bg-brand-blue/40 backdrop-blur-md overflow-hidden shadow-lg">
             <Table>
               <TableHeader>
@@ -158,8 +262,8 @@ const RequestsPage = () => {
               </TableHeader>
 
               <TableBody>
-                {requests.length > 0 ? (
-                  requests.map((request) => {
+                {filteredRequests.length > 0 ? (
+                  filteredRequests.map((request) => {
                     const actions: JSX.Element[] = [];
 
                     if (

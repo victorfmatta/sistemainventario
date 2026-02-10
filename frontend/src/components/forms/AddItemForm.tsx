@@ -4,21 +4,19 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { LoaderCircle } from 'lucide-react';
+import { api } from "@/lib/api"; // <--- IMPORTANTE
 
-// --- INÍCIO DA REATORAÇÃO ---
-
-// 1. SIMPLIFICAR AS PROPS: REMOVER 'unitId'
 interface AddItemFormProps {
   onItemAdded: (newItem?: any) => void;
   onCancel: () => void;
-  token: string | null;
+  token: string | null; // Mantido para compatibilidade, mas não usado diretamente no fetch
 }
 
-export const AddItemForm = ({ onItemAdded, onCancel, token }: AddItemFormProps) => {
+export const AddItemForm = ({ onItemAdded, onCancel }: AddItemFormProps) => {
   const [name, setName] = useState('');
   const [internalCode, setInternalCode] = useState('');
   const [unitOfMeasure, setUnitOfMeasure] = useState('');
-  const [quantity, setQuantity] = useState<string | number>(''); // Inicia vazio
+  const [quantity, setQuantity] = useState<string | number>('');
   const [description, setDescription] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +26,6 @@ export const AddItemForm = ({ onItemAdded, onCancel, token }: AddItemFormProps) 
     setIsLoading(true);
     setError(null);
 
-    // A quantidade pode ser 0, mas o nome é obrigatório
     if (!name) {
       setError('O nome do item é obrigatório.');
       setIsLoading(false);
@@ -36,13 +33,9 @@ export const AddItemForm = ({ onItemAdded, onCancel, token }: AddItemFormProps) 
     }
 
     try {
-      const response = await fetch('http://localhost:3001/api/items', {
+      // Substituído fetch por api
+      const response = await api('/items', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        // 2. REMOVER 'unitId' DO CORPO DA REQUISIÇÃO
         body: JSON.stringify({
           name,
           internalCode,
@@ -138,5 +131,3 @@ export const AddItemForm = ({ onItemAdded, onCancel, token }: AddItemFormProps) 
     </form>
   );
 };
-
-// --- FIM DA REATORAÇÃO ---

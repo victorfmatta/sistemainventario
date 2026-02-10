@@ -39,6 +39,7 @@ import { toast } from "sonner";
 import { AddItemForm } from "@/components/forms/AddItemForm";
 import { EditItemForm } from "@/components/forms/EditItemForm";
 import { exportToExcel, exportToPDF } from "@/utils/exportUtils";
+import { api } from "@/lib/api"; // <--- IMPORTANTE
 
 interface CentralStockItem {
   id: string;
@@ -49,7 +50,7 @@ interface CentralStockItem {
 }
 
 const CentralStockPage = () => {
-  const { token, user } = useAuth();
+  const { user, token } = useAuth(); // Mantemos token para passar aos forms se eles ainda precisarem, mas idealmente eles usarão api também
 
   const [items, setItems] = useState<CentralStockItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -63,19 +64,18 @@ const CentralStockPage = () => {
     useState<CentralStockItem | null>(null);
 
   const fetchCentralStock = async (showLoading = true) => {
-    if (!token) return;
+    // Não precisamos checar token aqui, a api cuida disso
     if (showLoading) setIsLoading(true);
 
     try {
-      const response = await fetch(
-        "http://localhost:3001/api/items",
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      // Substituído fetch por api
+      const response = await api("/items");
 
       if (response.ok) {
         setItems(await response.json());
       } else {
-        toast.error("Falha ao buscar dados do estoque central.");
+        const error = await response.json();
+        toast.error(error.message || "Falha ao buscar dados do estoque central.");
       }
     } catch {
       toast.error("Erro de conexão com o servidor.");
@@ -86,7 +86,7 @@ const CentralStockPage = () => {
 
   useEffect(() => {
     fetchCentralStock();
-  }, [token]);
+  }, []); // Sem dependência de token
 
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
@@ -112,16 +112,13 @@ const CentralStockPage = () => {
   };
 
   const handleDeleteItem = async () => {
-    if (!deletingItem || !token) return;
+    if (!deletingItem) return;
 
     try {
-      const response = await fetch(
-        `http://localhost:3001/api/items/${deletingItem.id}`,
-        {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      // Substituído fetch por api
+      const response = await api(`/items/${deletingItem.id}`, {
+        method: "DELETE",
+      });
 
       if (response.ok) {
         toast.success(
@@ -240,7 +237,7 @@ const CentralStockPage = () => {
                       </DialogTitle>
                     </DialogHeader>
                     <AddItemForm
-                      token={token}
+                      token={token} // Passando token caso o form não esteja atualizado, mas vamos atualizar
                       onItemAdded={handleItemAdded}
                       onCancel={() => setIsAddModalOpen(false)}
                     />
@@ -323,7 +320,7 @@ const CentralStockPage = () => {
                       colSpan={4}
                       className="text-center text-white/60 h-24"
                     >
-                      Nenhum item encontrado.
+                      Nenhum item encontrado nesta empresa.
                     </TableCell>
                   </TableRow>
                 )}

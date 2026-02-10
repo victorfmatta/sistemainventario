@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AppSidebar } from "@/components/AppSidebar";
-import { useAuth } from "@/contexts/auth.context";
+import { useAuth } from "@/contexts/auth.context"; // token não usado explicitamente mais
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -18,9 +18,20 @@ import {
     DialogTitle,
     DialogFooter,
 } from "@/components/ui/dialog";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { LoaderCircle, Pencil, Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { api } from "@/lib/api"; // <--- IMPORTANTE
 
 interface Supplier {
     id: string;
@@ -32,26 +43,27 @@ interface Supplier {
 }
 
 const SuppliersPage = () => {
-    const { token } = useAuth();
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [search, setSearch] = useState("");
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+    const [supplierToDelete, setSupplierToDelete] = useState<string | null>(null);
 
-    // Form states
     const [formData, setFormData] = useState<Partial<Supplier>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const fetchSuppliers = async () => {
         try {
-            const res = await fetch("http://localhost:3001/api/suppliers", {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            // Usando api ao invés de fetch
+            const res = await api("/suppliers");
             if (res.ok) {
                 const data = await res.json();
                 setSuppliers(data);
+            } else {
+                const error = await res.json();
+                toast.error(error.message || "Erro ao carregar fornecedores.");
             }
         } catch {
             toast.error("Erro ao carregar fornecedores.");
@@ -62,7 +74,7 @@ const SuppliersPage = () => {
 
     useEffect(() => {
         fetchSuppliers();
-    }, [token]);
+    }, []);
 
     const filteredSuppliers = suppliers.filter((s) =>
         s.name.toLowerCase().includes(search.toLowerCase())
@@ -79,17 +91,15 @@ const SuppliersPage = () => {
         }
 
         try {
-            const url = editingSupplier
-                ? `http://localhost:3001/api/suppliers/${editingSupplier.id}`
-                : "http://localhost:3001/api/suppliers";
+            // URL Relativa
+            const endpoint = editingSupplier
+                ? `/suppliers/${editingSupplier.id}`
+                : "/suppliers";
             const method = editingSupplier ? "PUT" : "POST";
 
-            const res = await fetch(url, {
+            // Usando api
+            const res = await api(endpoint, {
                 method,
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
                 body: JSON.stringify(formData),
             });
 
@@ -110,13 +120,13 @@ const SuppliersPage = () => {
         }
     };
 
-    const handleDelete = async (id: string) => {
-        if (!confirm("Tem certeza que deseja excluir este fornecedor?")) return;
+    const confirmDelete = async () => {
+        if (!supplierToDelete) return;
 
         try {
-            const res = await fetch(`http://localhost:3001/api/suppliers/${id}`, {
+            // Usando api
+            const res = await api(`/suppliers/${supplierToDelete}`, {
                 method: "DELETE",
-                headers: { Authorization: `Bearer ${token}` },
             });
 
             if (res.ok) {
@@ -128,6 +138,8 @@ const SuppliersPage = () => {
             }
         } catch {
             toast.error("Erro de conexão.");
+        } finally {
+            setSupplierToDelete(null);
         }
     };
 
@@ -188,7 +200,7 @@ const SuppliersPage = () => {
                                 ) : filteredSuppliers.length === 0 ? (
                                     <TableRow>
                                         <TableCell colSpan={4} className="h-24 text-center text-white/50">
-                                            Nenhum fornecedor encontrado.
+                                            Nenhum fornecedor encontrado nesta empresa.
                                         </TableCell>
                                     </TableRow>
                                 ) : (
@@ -209,7 +221,7 @@ const SuppliersPage = () => {
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    onClick={() => handleDelete(s.id)}
+                                                    onClick={() => setSupplierToDelete(s.id)}
                                                     className="hover:bg-white/10"
                                                 >
                                                     <Trash2 className="w-4 h-4 text-red-400" />
@@ -287,6 +299,28 @@ const SuppliersPage = () => {
                     </form>
                 </DialogContent>
             </Dialog>
+
+            <AlertDialog open={!!supplierToDelete} onOpenChange={(open) => !open && setSupplierToDelete(null)}>
+                <AlertDialogContent className="bg-background border-brand-blue/30">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Esta ação não pode ser desfeita. O fornecedor será removido permanentemente.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setSupplierToDelete(null)}>
+                            Cancelar
+                        </AlertDialogCancel>
+                        <AlertDialogAction 
+                            onClick={confirmDelete}
+                            className="bg-red-600 hover:bg-red-700 text-white border-none"
+                        >
+                            Confirmar Exclusão
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 };

@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { LoaderCircle } from 'lucide-react';
+import { api } from "@/lib/api"; // <--- IMPORTANTE
 
 // Tipos para os dados que o formulário vai manipular
 interface Unit {
@@ -18,21 +19,20 @@ interface Coordinator {
 }
 
 interface EditUnitFormProps {
-  unit?: Unit | null; // Opcional: se for edição, recebe a unidade
-  coordinators: Coordinator[]; // Lista de coordenadores disponíveis
+  unit?: Unit | null;
+  coordinators: Coordinator[];
   onSuccess: () => void;
   onCancel: () => void;
-  token: string | null;
+  token: string | null; // Mantemos a prop para não quebrar o pai, mas não usaremos no fetch
 }
 
-export const EditUnitForm = ({ unit, coordinators, onSuccess, onCancel, token }: EditUnitFormProps) => {
-  // Define o estado inicial com base se é uma criação ou edição
+export const EditUnitForm = ({ unit, coordinators, onSuccess, onCancel }: EditUnitFormProps) => {
   const [name, setName] = useState(unit?.name || '');
   const [selectedCoordinatorId, setSelectedCoordinatorId] = useState<string | undefined>(unit?.coordinatorId || undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isEditing = !!unit; // Flag para saber se estamos editando
+  const isEditing = !!unit;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,22 +45,18 @@ export const EditUnitForm = ({ unit, coordinators, onSuccess, onCancel, token }:
       return;
     }
 
-    // Define a URL e o método com base se é criação (POST) ou edição (PUT)
-    const url = isEditing ? `http://localhost:3001/api/units/${unit.id}` : 'http://localhost:3001/api/units';
+    // Define a URL relativa e o método
+    const endpoint = isEditing ? `/units/${unit.id}` : '/units';
     const method = isEditing ? 'PUT' : 'POST';
 
     try {
-      const response = await fetch(url, {
+      // Substituímos o fetch pela nossa api
+      const response = await api(endpoint, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
         body: JSON.stringify({
           name,
-          // Envia 'null' se "Nenhum" for selecionado, para desassociar o coordenador
           coordinatorId: selectedCoordinatorId === 'none' ? null : selectedCoordinatorId,
-        } ),
+        }),
       });
 
       if (response.ok) {

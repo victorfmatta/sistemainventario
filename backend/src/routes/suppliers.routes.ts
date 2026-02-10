@@ -1,11 +1,10 @@
-import { Router } from 'express';
+import { Router, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { authMiddleware, AuthenticatedRequest } from '../middlewares/auth.middleware';
 
 const router = Router();
 const prisma = new PrismaClient();
 
-// Middleware: Apenas DIRETOR pode gerenciar fornecedores
 const directorOnly = (req: AuthenticatedRequest, res: any, next: any) => {
     if (req.user?.role !== 'DIRETOR') {
         return res.status(403).json({ message: 'Acesso negado. Apenas diretores podem realizar esta ação.' });
@@ -16,12 +15,12 @@ const directorOnly = (req: AuthenticatedRequest, res: any, next: any) => {
 // =====================================
 // CRIAR FORNECEDOR
 // =====================================
-router.post('/', authMiddleware, directorOnly, async (req, res) => {
+router.post('/', authMiddleware, directorOnly, async (req: AuthenticatedRequest, res: Response) => {
     const { name, businessName, cnpj, contact, address } = req.body;
+    const companyId = req.user?.companyId;
 
-    if (!name) {
-        return res.status(400).json({ message: 'O nome fantasia é obrigatório.' });
-    }
+    if (!companyId) return res.status(400).json({ message: "Empresa não informada." });
+    if (!name) return res.status(400).json({ message: 'O nome fantasia é obrigatório.' });
 
     try {
         const newSupplier = await prisma.supplier.create({
@@ -31,12 +30,13 @@ router.post('/', authMiddleware, directorOnly, async (req, res) => {
                 cnpj,
                 contact,
                 address,
+                company: { connect: { id: companyId } }
             },
         });
         res.status(201).json(newSupplier);
     } catch (error: any) {
         if (error.code === 'P2002') {
-            return res.status(409).json({ message: 'Já existe um fornecedor com este CNPJ.' });
+            return res.status(409).json({ message: 'Já existe um fornecedor com este CNPJ nesta empresa.' });
         }
         console.error(error);
         res.status(500).json({ message: 'Erro ao criar fornecedor.' });
@@ -46,9 +46,13 @@ router.post('/', authMiddleware, directorOnly, async (req, res) => {
 // =====================================
 // LISTAR FORNECEDORES
 // =====================================
-router.get('/', authMiddleware, directorOnly, async (req, res) => {
+router.get('/', authMiddleware, directorOnly, async (req: AuthenticatedRequest, res: Response) => {
     try {
+        const companyId = req.user?.companyId;
+        if (!companyId) return res.status(400).json({ message: "Empresa não informada." });
+
         const suppliers = await prisma.supplier.findMany({
+            where: { companyId },
             orderBy: { name: 'asc' },
         });
         res.status(200).json(suppliers);
@@ -61,7 +65,7 @@ router.get('/', authMiddleware, directorOnly, async (req, res) => {
 // =====================================
 // BUSCAR FORNECEDOR POR ID
 // =====================================
-router.get('/:id', authMiddleware, directorOnly, async (req, res) => {
+router.get('/:id', authMiddleware, directorOnly, async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
     try {
         const supplier = await prisma.supplier.findUnique({
@@ -88,7 +92,7 @@ router.get('/:id', authMiddleware, directorOnly, async (req, res) => {
 // =====================================
 // ATUALIZAR FORNECEDOR
 // =====================================
-router.put('/:id', authMiddleware, directorOnly, async (req, res) => {
+router.put('/:id', authMiddleware, directorOnly, async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
     const { name, businessName, cnpj, contact, address } = req.body;
 
@@ -120,7 +124,7 @@ router.put('/:id', authMiddleware, directorOnly, async (req, res) => {
 // =====================================
 // DELETAR FORNECEDOR
 // =====================================
-router.delete('/:id', authMiddleware, directorOnly, async (req, res) => {
+router.delete('/:id', authMiddleware, directorOnly, async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
 
     try {
@@ -129,7 +133,6 @@ router.delete('/:id', authMiddleware, directorOnly, async (req, res) => {
         });
         res.status(204).send();
     } catch (error: any) {
-        // Erro de restrição de chave estrangeira (se já tiver entradas de estoque)
         if (error.code === 'P2003') {
             return res.status(400).json({ message: 'Não é possível excluir este fornecedor pois existem entradas de estoque vinculadas a ele.' });
         }
