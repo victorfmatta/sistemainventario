@@ -49,7 +49,7 @@ model User {
   unit   Unit?   @relation("Instructors", fields: [unitId], references: [id])
 
   createdById String?
-  createdBy   User?   @relation("CreatedUsers", fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy   User?     @relation("CreatedUsers", fields: [createdById], references: [id], onDelete: SetNull)
 
   createdUsers User[]       @relation("CreatedUsers")
   stockEntries StockEntry[]
@@ -159,6 +159,7 @@ model StockEntryItem {
 model UnitItem {
   id       String @id @default(cuid())
   quantity Int
+  
   unitId   String
   unit     Unit   @relation(fields: [unitId], references: [id], onDelete: Cascade)
   itemId   String
@@ -171,6 +172,11 @@ model Request {
   id          String   @id @default(cuid())
   quantity    Int
   status      String   @default("SOLICITADO")
+  
+  // --- NOVOS CAMPOS PARA RASTREIO E ENTREGA ---
+  trackingCode     String?  // Código de Rastreio (Correios, Transportadora, etc)
+  deliveryPassword String?  // Senha para confirmar recebimento
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   purpose     String?

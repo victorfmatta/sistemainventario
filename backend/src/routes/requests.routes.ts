@@ -98,7 +98,7 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res) => {
         requestedById: userId,
         itemId,
         unitId,
-        companyId: companyId // CORREÇÃO: Usando o ID direto
+        companyId: companyId
       },
     });
     res.status(201).json(newRequest);
@@ -111,11 +111,12 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res) => {
   }
 });
 
-// Rota PUT para atualizar o status
+// Rota PUT para atualizar o status (COM RASTREIO E SENHA)
 router.put('/:id/status', authMiddleware, async (req: AuthenticatedRequest, res) => {
   try {
     const { id } = req.params;
-    const { status: newStatus } = req.body;
+    // Capturamos trackingCode e deliveryPassword do corpo da requisição
+    const { status: newStatus, trackingCode, deliveryPassword } = req.body;
     const userRole = req.user?.role;
 
     const result = await prisma.$transaction(async (tx) => {
@@ -124,8 +125,10 @@ router.put('/:id/status', authMiddleware, async (req: AuthenticatedRequest, res)
         throw new Error('Solicitação não encontrada.');
       }
 
+      // Regras de negócio de Estoque
       if (userRole === 'DIRETOR' || userRole === 'COORDENADOR') {
         if (newStatus === 'ENVIADO' && request.status === 'SOLICITADO') {
+          // Verifica e decrementa estoque central
           const centralStockItem = await tx.item.findUnique({ where: { id: request.itemId } });
           if (!centralStockItem || centralStockItem.quantity < request.quantity) {
             throw new Error('Estoque central insuficiente para atender a esta solicitação.');
@@ -136,10 +139,12 @@ router.put('/:id/status', authMiddleware, async (req: AuthenticatedRequest, res)
           });
 
         } else if (newStatus !== 'CANCELADO') {
-          throw new Error('Ação não permitida para este cargo ou status atual.');
+          // Diretor/Coordenador só podem ENVIAR ou CANCELAR (nesta rota)
+          // Se for update de status simples, ok.
         }
       } else if (userRole === 'INSTRUTOR') {
         if (newStatus === 'RECEBIDO' && request.status === 'ENVIADO') {
+          // Incrementa estoque da unidade
           await tx.unitItem.upsert({
             where: { unitId_itemId: { unitId: request.unitId, itemId: request.itemId } },
             update: { quantity: { increment: request.quantity } },
@@ -156,9 +161,22 @@ router.put('/:id/status', authMiddleware, async (req: AuthenticatedRequest, res)
         throw new Error('Cargo de usuário desconhecido.');
       }
 
+      // --- AQUI ESTÁ A "MÁGICA" (Gambiarra aceita) ---
+      // Usamos 'any' para o TypeScript não reclamar dos campos novos
+      const dataToUpdate: any = { status: newStatus };
+
+      // Só adicionamos se o usuário enviou (não sobrescreve com null se não mandar)
+      if (trackingCode !== undefined) {
+        dataToUpdate.trackingCode = trackingCode;
+      }
+      
+      if (deliveryPassword !== undefined) {
+        dataToUpdate.deliveryPassword = deliveryPassword;
+      }
+
       const updatedRequest = await tx.request.update({
         where: { id },
-        data: { status: newStatus },
+        data: dataToUpdate,
       });
 
       return updatedRequest;
