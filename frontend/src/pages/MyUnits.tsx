@@ -11,6 +11,7 @@ import {
 import { useAuth } from "@/contexts/auth.context";
 import { toast } from "sonner";
 import { LoaderCircle } from "lucide-react";
+import { api } from "@/lib/api"; // <--- IMPORTANTE
 
 interface Instructor {
   id: string;
@@ -29,24 +30,16 @@ interface Unit {
 
 const MyUnits = () => {
   const navigate = useNavigate();
-  const { token, logout } = useAuth();
+  const { logout } = useAuth(); // token não é mais necessário aqui diretamente
 
   const [units, setUnits] = useState<Unit[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!token) {
-      setIsLoading(false);
-      return;
-    }
-
     const fetchUnits = async () => {
       try {
-        const response = await fetch("http://localhost:3001/api/units", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        // Substituído fetch por api
+        const response = await api("/units");
 
         if (response.ok) {
           const data: Unit[] = await response.json();
@@ -57,7 +50,9 @@ const MyUnits = () => {
             logout();
             navigate("/");
           } else {
-            toast.error("Falha ao buscar as unidades.");
+            // Se der erro 400 (ex: sem empresa selecionada), mostramos a mensagem do back
+            const error = await response.json(); 
+            toast.error(error.message || "Falha ao buscar as unidades.");
           }
         }
       } catch {
@@ -68,7 +63,7 @@ const MyUnits = () => {
     };
 
     fetchUnits();
-  }, [token, logout, navigate]);
+  }, [logout, navigate]);
 
   if (isLoading) {
     return (
@@ -142,7 +137,7 @@ const MyUnits = () => {
                 );
               })
             ) : (
-              <p className="text-white/60 col-span-3 text-center">Nenhuma unidade encontrada.</p>
+              <p className="text-white/60 col-span-3 text-center">Nenhuma unidade encontrada nesta empresa.</p>
             )}
           </div>
         </div>

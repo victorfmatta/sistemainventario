@@ -28,9 +28,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { api } from "@/lib/api"; // <--- IMPORTANTE
 
 const Dashboard = () => {
-  const { user, token } = useAuth();
+  const { user } = useAuth(); // token não é mais necessário aqui
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   
@@ -55,23 +56,24 @@ const Dashboard = () => {
   const [lowStock, setLowStock] = useState<any | null>(null);
 
   useEffect(() => {
-    if (!token) {
-      setIsLoading(false);
+    // Redirecionamento de segurança:
+    // Se não for DIRETOR, manda para "Minhas Unidades"
+    if (user?.role && user.role !== 'DIRETOR') {
+      navigate('/my-units');
       return;
     }
 
     const fetchData = async () => {
       try {
-        const headers = { Authorization: `Bearer ${token}` };
-        
+        // Substituído fetch por api.Promise.all
         const [summaryRes, movementsRes, entriesRes, pendingRes, lowStockRes, unitsRes, usersRes] = await Promise.all([
-          fetch(`http://localhost:3001/api/dashboard/summary?period=${period}`, { headers }),
-          fetch(`http://localhost:3001/api/dashboard/movements?period=${period}`, { headers }),
-          fetch('http://localhost:3001/api/stock-entries', { headers }),
-          fetch('http://localhost:3001/api/dashboard/pending-requests', { headers }),
-          fetch('http://localhost:3001/api/dashboard/low-stock?threshold=5', { headers }),
-          fetch('http://localhost:3001/api/units', { headers }),
-          fetch('http://localhost:3001/api/users', { headers }),
+          api(`/dashboard/summary?period=${period}`),
+          api(`/dashboard/movements?period=${period}`),
+          api('/stock-entries'),
+          api('/dashboard/pending-requests'),
+          api('/dashboard/low-stock?threshold=5'),
+          api('/units'),
+          api('/users'),
         ]);
 
         if (summaryRes.ok) {
@@ -102,19 +104,14 @@ const Dashboard = () => {
           setUsersCount(users.length);
         }
       } catch (err) {
-        console.error(err);
+        console.error("Erro ao carregar dashboard:", err);
       } finally {
         setIsLoading(false);
       }
     };
 
-    if (user?.role !== 'DIRETOR') {
-      navigate('/my-units');
-      return;
-    }
-
     fetchData();
-  }, [token, user, navigate, period]);
+  }, [user, navigate, period]); // Removido token das dependências
 
   if (isLoading) {
     return (

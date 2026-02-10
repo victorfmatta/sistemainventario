@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Response } from 'express';
 import { PrismaClient, Prisma } from '@prisma/client';
 import {
   authMiddleware,
@@ -13,7 +13,7 @@ const prisma = new PrismaClient();
 // =====================================
 const directorOnly = (
   req: AuthenticatedRequest,
-  res: any,
+  res: Response,
   next: any
 ) => {
   if (req.user?.role !== 'DIRETOR') {
@@ -27,8 +27,14 @@ const directorOnly = (
 // =====================================
 // CRIAR UNIDADE (Diretor)
 // =====================================
-router.post('/', authMiddleware, directorOnly, async (req, res) => {
+// Adicionado ': AuthenticatedRequest' aqui vvv
+router.post('/', authMiddleware, directorOnly, async (req: AuthenticatedRequest, res: Response) => {
   const { name } = req.body;
+  const companyId = req.user?.companyId;
+
+  if (!companyId) {
+    return res.status(400).json({ message: 'Empresa não selecionada.' });
+  }
 
   if (!name) {
     return res.status(400).json({
@@ -38,14 +44,17 @@ router.post('/', authMiddleware, directorOnly, async (req, res) => {
 
   try {
     const newUnit = await prisma.unit.create({
-      data: { name },
+      data: { 
+        name,
+        company: { connect: { id: companyId } } 
+      },
     });
 
     res.status(201).json(newUnit);
   } catch (error: any) {
     if (error.code === 'P2002') {
       return res.status(409).json({
-        message: 'Já existe uma unidade com este nome.',
+        message: 'Já existe uma unidade com este nome nesta empresa.',
       });
     }
 
@@ -58,10 +67,10 @@ router.post('/', authMiddleware, directorOnly, async (req, res) => {
 // =====================================
 // ATUALIZAR UNIDADE (Diretor)
 // =====================================
-router.put('/:id', authMiddleware, directorOnly, async (req, res) => {
+router.put('/:id', authMiddleware, directorOnly, async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
   const { name, coordinatorId } = req.body;
-
+  
   if (!name && coordinatorId === undefined) {
     return res.status(400).json({
       message:
@@ -89,7 +98,7 @@ router.put('/:id', authMiddleware, directorOnly, async (req, res) => {
 // =====================================
 // DELETAR UNIDADE (Diretor)
 // =====================================
-router.delete('/:id', authMiddleware, directorOnly, async (req, res) => {
+router.delete('/:id', authMiddleware, directorOnly, async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
 
   try {
@@ -117,19 +126,25 @@ router.delete('/:id', authMiddleware, directorOnly, async (req, res) => {
 });
 
 // =====================================
-// LISTAR UNIDADES (COM COORDENADOR E INSTRUTORES)
+// LISTAR UNIDADES
 // =====================================
-router.get('/', authMiddleware, async (req: AuthenticatedRequest, res) => {
+router.get('/', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { userId, role } = req.user!;
-    let whereClause: Prisma.UnitWhereInput = {};
-
-    // Coordenador vê apenas sua unidade
-    if (role === 'COORDENADOR') {
-      whereClause = { coordinatorId: userId };
+    // Agora o TypeScript sabe que 'req.user' existe!
+    const { userId, role, companyId } = req.user!;
+    
+    if (!companyId) {
+       return res.status(400).json({ message: "Contexto de empresa obrigatório." });
     }
 
-    // Instrutor vê apenas sua unidade
+    let whereClause: Prisma.UnitWhereInput = {
+        companyId: companyId 
+    };
+
+    if (role === 'COORDENADOR') {
+      whereClause = { ...whereClause, coordinatorId: userId };
+    }
+
     if (role === 'INSTRUTOR') {
       const instructor = await prisma.user.findUnique({
         where: { id: userId },
@@ -137,7 +152,7 @@ router.get('/', authMiddleware, async (req: AuthenticatedRequest, res) => {
       });
 
       whereClause = instructor?.unitId
-        ? { id: instructor.unitId }
+        ? { ...whereClause, id: instructor.unitId }
         : { id: '-1' };
     }
 
@@ -178,7 +193,7 @@ router.get('/', authMiddleware, async (req: AuthenticatedRequest, res) => {
 // =====================================
 // BUSCAR UMA UNIDADE ESPECÍFICA
 // =====================================
-router.get('/:id', authMiddleware, async (req, res) => {
+router.get('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
 

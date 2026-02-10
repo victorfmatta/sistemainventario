@@ -30,6 +30,7 @@ import {
 import { LoaderCircle, Plus, Trash2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { api } from "@/lib/api"; // <--- IMPORTANTE
 
 interface Supplier {
     id: string;
@@ -49,7 +50,7 @@ interface EntryItem {
 }
 
 const StockEntryPage = () => {
-    const { token, user } = useAuth();
+    const { token, user } = useAuth(); // Mantemos token apenas para passar pro AddItemForm se necessário
     const navigate = useNavigate();
 
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -74,19 +75,19 @@ const StockEntryPage = () => {
     const [currentPrice, setCurrentPrice] = useState<string | number>("");
 
     const fetchData = async () => {
+        setIsLoading(true);
         try {
+            // Substituído fetch por api
             const [suppliersRes, itemsRes] = await Promise.all([
-                fetch("http://localhost:3001/api/suppliers", {
-                    headers: { Authorization: `Bearer ${token}` },
-                }),
-                fetch("http://localhost:3001/api/items", {
-                    headers: { Authorization: `Bearer ${token}` },
-                }),
+                api("/suppliers"),
+                api("/items"),
             ]);
 
             if (suppliersRes.ok && itemsRes.ok) {
                 setSuppliers(await suppliersRes.json());
                 setItems(await itemsRes.json());
+            } else {
+                toast.error("Falha ao carregar dados da empresa.");
             }
         } catch {
             toast.error("Erro ao carregar dados.");
@@ -97,7 +98,7 @@ const StockEntryPage = () => {
 
     useEffect(() => {
         fetchData();
-    }, [token]);
+    }, []); // Sem dependência de token, pois a api gerencia
 
     const handleNewItemAdded = (newItem?: any) => {
         setIsAddModalOpen(false);
@@ -158,12 +159,9 @@ const StockEntryPage = () => {
         setIsSubmitting(true);
 
         try {
-            const response = await fetch("http://localhost:3001/api/stock-entries", {
+            // Substituído fetch por api
+            const response = await api("/stock-entries", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
                 body: JSON.stringify({
                     supplierId: supplierId === "none" ? null : supplierId,
                     invoiceNumber,

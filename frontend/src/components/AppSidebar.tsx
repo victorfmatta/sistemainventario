@@ -16,6 +16,7 @@ import {
 import { NavLink as RouterNavLink, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/auth.context";
 import { Button } from "./ui/button";
+import { CompanySelector } from "./CompanySelector";
 
 const navigationItems = [
   {
@@ -72,7 +73,6 @@ export function AppSidebar() {
   const location = useLocation();
   const { user, logout } = useAuth();
   
-  // INICIALIZAÇÃO CORRIGIDA:
   // Verifica se existe uma preferência salva. Se não existir, começa aberto (false).
   const [isCollapsed, setIsCollapsed] = useState(() => {
     const saved = localStorage.getItem("sidebar_collapsed");
@@ -82,7 +82,6 @@ export function AppSidebar() {
   const toggleSidebar = () => {
     const newState = !isCollapsed;
     setIsCollapsed(newState);
-    // Salva a preferência no navegador
     localStorage.setItem("sidebar_collapsed", String(newState));
   };
 
@@ -131,6 +130,13 @@ export function AppSidebar() {
           </div>
         )}
       </div>
+
+      {/* Seletor de Empresa (Apenas se expandido) */}
+      {!isCollapsed && (
+        <div className="pt-4 px-2">
+            <CompanySelector />
+        </div>
+      )}
 
       {/* Navigation */}
       <nav className="flex-1 p-3 overflow-y-auto overflow-x-hidden">

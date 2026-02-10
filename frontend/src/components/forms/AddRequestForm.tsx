@@ -3,8 +3,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea'; // 1. Importar Textarea
+import { Textarea } from '@/components/ui/textarea';
 import { LoaderCircle } from 'lucide-react';
+import { api } from "@/lib/api"; // <--- IMPORTANTE
 
 interface CentralStockItem {
   id: string;
@@ -19,30 +20,26 @@ interface AddRequestFormProps {
   token: string | null;
 }
 
-export const AddRequestForm = ({ unitId, onSuccess, onCancel, token }: AddRequestFormProps) => {
+export const AddRequestForm = ({ unitId, onSuccess, onCancel }: AddRequestFormProps) => {
   const [availableItems, setAvailableItems] = useState<CentralStockItem[]>([]);
   const [isFetchingItems, setIsFetchingItems] = useState(true);
   
   const [selectedItemId, setSelectedItemId] = useState<string | undefined>(undefined);
   const [quantity, setQuantity] = useState<string>('1');
   
-  // --- INÍCIO DAS ALTERAÇÕES ---
-  // 2. Adicionar estados para os novos campos
   const [purpose, setPurpose] = useState<string | undefined>(undefined);
   const [observation, setObservation] = useState('');
-  // --- FIM DAS ALTERAÇÕES ---
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchCentralStockItems = async () => {
-      if (!token) return;
       setIsFetchingItems(true);
       try {
-        const response = await fetch('http://localhost:3001/api/items', {
-          headers: { 'Authorization': `Bearer ${token}` },
-        } );
+        // Substituído fetch por api
+        const response = await api('/items');
+        
         if (response.ok) {
           setAvailableItems(await response.json());
         } else {
@@ -55,14 +52,13 @@ export const AddRequestForm = ({ unitId, onSuccess, onCancel, token }: AddReques
       }
     };
     fetchCentralStockItems();
-  }, [token]);
+  }, []); // Sem dependência de token
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError(null);
 
-    // 3. Adicionar validação para o campo 'purpose'
     const qty = parseInt(quantity || '0', 10);
     if (!selectedItemId || qty <= 0 || !purpose) {
       setError('Por favor, preencha todos os campos obrigatórios.');
@@ -71,20 +67,16 @@ export const AddRequestForm = ({ unitId, onSuccess, onCancel, token }: AddReques
     }
 
     try {
-      const response = await fetch('http://localhost:3001/api/requests', {
+      // Substituído fetch por api
+      const response = await api('/requests', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        // 4. Adicionar os novos campos ao corpo da requisição
         body: JSON.stringify({
           itemId: selectedItemId,
           quantity: qty,
           unitId,
           purpose,
           observation,
-        } ),
+        }),
       });
 
       if (response.ok) {
@@ -124,18 +116,16 @@ export const AddRequestForm = ({ unitId, onSuccess, onCancel, token }: AddReques
                   </SelectItem>
                 ))
               ) : (
-                <div className="p-4 text-sm text-muted-foreground">Nenhum item no estoque central.</div>
+                <div className="p-4 text-sm text-muted-foreground">Nenhum item no estoque central desta empresa.</div>
               )}
             </SelectContent>
           </Select>
         </div>
 
-        {/* --- INÍCIO DAS ALTERAÇÕES --- */}
-        {/* 5. Adicionar os novos campos ao formulário */}
         <div className="space-y-2">
           <Label htmlFor="purpose">Propósito</Label>
           <Select value={purpose} onValueChange={setPurpose} disabled={isSubmitting}>
-            <SelectTrigger id="purpose"><SelectValue placeholder="Selecione o propósito..." /></SelectTrigger>
+            <SelectTrigger id="purpose"><SelectValue placeholder="Selecione..." /></SelectTrigger>
             <SelectContent>
               <SelectItem value="AULA">Uso em Aula</SelectItem>
               <SelectItem value="PROJETO">Uso em Projeto</SelectItem>
@@ -152,7 +142,6 @@ export const AddRequestForm = ({ unitId, onSuccess, onCancel, token }: AddReques
             pattern="\d*"
             value={quantity}
             onChange={(e) => {
-              // permitir apenas dígitos e vazio
               const raw = e.target.value.replace(/\D/g, '');
               setQuantity(raw);
             }}
@@ -164,7 +153,6 @@ export const AddRequestForm = ({ unitId, onSuccess, onCancel, token }: AddReques
           <Label htmlFor="observation">Justificativa / Observação (Opcional)</Label>
           <Textarea id="observation" value={observation} onChange={(e) => setObservation(e.target.value)} placeholder="Ex: Material para o projeto de robótica do 3º ano." disabled={isSubmitting} />
         </div>
-        {/* --- FIM DAS ALTERAÇÕES --- */}
       </div>
 
       {error && <p className="text-sm text-red-500">{error}</p>}

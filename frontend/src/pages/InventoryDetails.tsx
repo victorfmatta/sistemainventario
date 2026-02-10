@@ -16,6 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
+import { api } from "@/lib/api"; // <--- IMPORTANTE
 
 interface InventoryItem {
   id: string;
@@ -37,19 +38,19 @@ interface Unit {
 const InventoryDetails = () => {
   const { id: unitId } = useParams();
   const navigate = useNavigate();
-  const { token, user } = useAuth();
+  const { user, token } = useAuth(); // token mantido apenas para passar pro form se necessário
 
   const [unit, setUnit] = useState<Unit | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
 
   const fetchInventoryData = async () => {
-    if (!token || !unitId) return;
+    if (!unitId) return;
     setIsLoading(true);
     try {
-      const response = await fetch(`http://localhost:3001/api/units/${unitId}`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
+      // Substituído fetch por api
+      const response = await api(`/units/${unitId}`);
+      
       if (response.ok) {
         setUnit(await response.json());
       } else {
@@ -65,11 +66,12 @@ const InventoryDetails = () => {
 
   useEffect(() => {
     fetchInventoryData();
-  }, [unitId, token]);
+  }, [unitId]); // Removemos dependência de token
 
   const handleRequestSuccess = () => {
     setIsRequestModalOpen(false);
     toast.success("Solicitação criada com sucesso!");
+    fetchInventoryData(); // Recarrega os dados após sucesso
   };
 
   if (isLoading) {
@@ -79,11 +81,8 @@ const InventoryDetails = () => {
     return <div className="flex min-h-screen w-full items-center justify-center bg-background"><p>Unidade não encontrada.</p></div>;
   }
 
-  // --- INÍCIO DA ALTERAÇÃO ---
-  // Apenas o COORDENADOR pode fazer solicitações.
   const canMakeRequest = user?.role === 'COORDENADOR';
   const isDirector = user?.role === 'DIRETOR';
-  // --- FIM DA ALTERAÇÃO ---
 
   const handleExportExcel = () => {
     if (!unit || unit.inventoryItems.length === 0) {
@@ -95,7 +94,6 @@ const InventoryDetails = () => {
       { header: "Qtd", key: "quantity" },
       { header: "Atualizado em", key: "item.updatedAt" },
     ];
-    // Flatten data for simple export
     const dataToExport = unit.inventoryItems.map(inv => ({
       ...inv,
       "item.name": inv.item.name,
@@ -115,7 +113,6 @@ const InventoryDetails = () => {
       { header: "Qtd", key: "quantity" },
       { header: "Atualizado em", key: "item.updatedAt" },
     ];
-    // Flatten data for simple export
     const dataToExport = unit.inventoryItems.map(inv => ({
       ...inv,
       "item.name": inv.item.name,
@@ -142,7 +139,7 @@ const InventoryDetails = () => {
                   <DialogHeader><DialogTitle>Fazer Nova Solicitação para {unit.name}</DialogTitle></DialogHeader>
                   <AddRequestForm
                     unitId={unit.id}
-                    token={token}
+                    token={token} // Mantemos prop se o form precisar, mas ele deve ser atualizado
                     onSuccess={handleRequestSuccess}
                     onCancel={() => setIsRequestModalOpen(false)}
                   />

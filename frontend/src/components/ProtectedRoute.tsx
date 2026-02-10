@@ -1,12 +1,13 @@
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/auth.context';
 import { LoaderCircle } from 'lucide-react';
 
 const ProtectedRoute = () => {
-  // 1. Pega o estado de autenticação E o estado de carregamento
-  const { isAuthenticated, isLoading } = useAuth();
+  // Pega o estado de autenticação, carregamento e a empresa selecionada
+  const { isAuthenticated, isLoading, selectedCompanyId } = useAuth();
+  const location = useLocation();
 
-  // 2. Se o contexto ainda está verificando a sessão, mostra uma tela de loading
+  // 1. Loading inicial
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
@@ -15,12 +16,19 @@ const ProtectedRoute = () => {
     );
   }
 
-  // 3. Se o carregamento terminou E o usuário não está autenticado, redireciona
+  // 2. Se não estiver logado -> Login
   if (!isAuthenticated) {
     return <Navigate to="/" replace />;
   }
 
-  // 4. Se o carregamento terminou E o usuário está autenticado, mostra a página
+  // 3. --- NOVA LÓGICA DE MULTI-TENANCY ---
+  // Se o usuário está logado, mas NÃO tem empresa selecionada (Diretor recém logado),
+  // e ele NÃO está na página de seleção... Força o redirecionamento para a seleção.
+  if (!selectedCompanyId && location.pathname !== "/select-company") {
+    return <Navigate to="/select-company" replace />;
+  }
+
+  // 4. Tudo certo (Logado e com empresa definida), libera o acesso
   return <Outlet />;
 };
 

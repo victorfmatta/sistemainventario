@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AppSidebar } from "@/components/AppSidebar";
-import { useAuth } from "@/contexts/auth.context";
+import { useAuth } from "@/contexts/auth.context"; // token não usado explicitamente mais
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -31,6 +31,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { LoaderCircle, Pencil, Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { api } from "@/lib/api"; // <--- IMPORTANTE
 
 interface Supplier {
     id: string;
@@ -42,29 +43,27 @@ interface Supplier {
 }
 
 const SuppliersPage = () => {
-    const { token } = useAuth();
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [search, setSearch] = useState("");
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
-
-    // Estado para controlar qual fornecedor está sendo excluído
     const [supplierToDelete, setSupplierToDelete] = useState<string | null>(null);
 
-    // Form states
     const [formData, setFormData] = useState<Partial<Supplier>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const fetchSuppliers = async () => {
         try {
-            const res = await fetch("http://localhost:3001/api/suppliers", {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            // Usando api ao invés de fetch
+            const res = await api("/suppliers");
             if (res.ok) {
                 const data = await res.json();
                 setSuppliers(data);
+            } else {
+                const error = await res.json();
+                toast.error(error.message || "Erro ao carregar fornecedores.");
             }
         } catch {
             toast.error("Erro ao carregar fornecedores.");
@@ -75,7 +74,7 @@ const SuppliersPage = () => {
 
     useEffect(() => {
         fetchSuppliers();
-    }, [token]);
+    }, []);
 
     const filteredSuppliers = suppliers.filter((s) =>
         s.name.toLowerCase().includes(search.toLowerCase())
@@ -92,17 +91,15 @@ const SuppliersPage = () => {
         }
 
         try {
-            const url = editingSupplier
-                ? `http://localhost:3001/api/suppliers/${editingSupplier.id}`
-                : "http://localhost:3001/api/suppliers";
+            // URL Relativa
+            const endpoint = editingSupplier
+                ? `/suppliers/${editingSupplier.id}`
+                : "/suppliers";
             const method = editingSupplier ? "PUT" : "POST";
 
-            const res = await fetch(url, {
+            // Usando api
+            const res = await api(endpoint, {
                 method,
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
                 body: JSON.stringify(formData),
             });
 
@@ -123,14 +120,13 @@ const SuppliersPage = () => {
         }
     };
 
-    // Função que executa a exclusão de fato após confirmação
     const confirmDelete = async () => {
         if (!supplierToDelete) return;
 
         try {
-            const res = await fetch(`http://localhost:3001/api/suppliers/${supplierToDelete}`, {
+            // Usando api
+            const res = await api(`/suppliers/${supplierToDelete}`, {
                 method: "DELETE",
-                headers: { Authorization: `Bearer ${token}` },
             });
 
             if (res.ok) {
@@ -143,7 +139,7 @@ const SuppliersPage = () => {
         } catch {
             toast.error("Erro de conexão.");
         } finally {
-            setSupplierToDelete(null); // Fecha o modal
+            setSupplierToDelete(null);
         }
     };
 
@@ -204,7 +200,7 @@ const SuppliersPage = () => {
                                 ) : filteredSuppliers.length === 0 ? (
                                     <TableRow>
                                         <TableCell colSpan={4} className="h-24 text-center text-white/50">
-                                            Nenhum fornecedor encontrado.
+                                            Nenhum fornecedor encontrado nesta empresa.
                                         </TableCell>
                                     </TableRow>
                                 ) : (
@@ -222,7 +218,6 @@ const SuppliersPage = () => {
                                                 >
                                                     <Pencil className="w-4 h-4 text-brand-cyan" />
                                                 </Button>
-                                                {/* Botão de excluir agora apenas seta o ID no estado */}
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
@@ -241,7 +236,6 @@ const SuppliersPage = () => {
                 </div>
             </main>
 
-            {/* Modal de Edição/Criação */}
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                 <DialogContent className="bg-background border-brand-blue/30">
                     <DialogHeader>
@@ -306,7 +300,6 @@ const SuppliersPage = () => {
                 </DialogContent>
             </Dialog>
 
-            {/* Novo Modal de Confirmação de Exclusão (AlertDialog) */}
             <AlertDialog open={!!supplierToDelete} onOpenChange={(open) => !open && setSupplierToDelete(null)}>
                 <AlertDialogContent className="bg-background border-brand-blue/30">
                     <AlertDialogHeader>

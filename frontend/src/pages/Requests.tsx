@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
 import { toast } from 'sonner';
+import { api } from "@/lib/api"; // <--- IMPORTANTE
 
 type RequestStatus = 'SOLICITADO' | 'ENVIADO' | 'RECEBIDO' | 'CANCELADO';
 
@@ -53,10 +54,12 @@ const statusVariants: Record<RequestStatus, string> = {
 };
 
 const RequestsPage = () => {
-  const { token, user } = useAuth();
+  const { user } = useAuth(); // token não é mais necessário aqui
   const [requests, setRequests] = useState<Request[]>([]);
   const [filteredRequests, setFilteredRequests] = useState<Request[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Filtros
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [startDate, setStartDate] = useState<string>('');
@@ -64,11 +67,11 @@ const RequestsPage = () => {
   const [debouncedQuery, setDebouncedQuery] = useState<string>('');
 
   const fetchRequests = async () => {
-    if (!token) return;
+    setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:3001/api/requests', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      // Substituído fetch por api
+      const response = await api('/requests');
+      
       if (response.ok) {
         setRequests(await response.json());
       } else {
@@ -83,7 +86,7 @@ const RequestsPage = () => {
 
   useEffect(() => {
     fetchRequests();
-  }, [token]);
+  }, []); // Sem dependência de token
 
   // Debounce para o campo de busca
   useEffect(() => {
@@ -91,12 +94,14 @@ const RequestsPage = () => {
     return () => clearTimeout(t);
   }, [searchQuery]);
 
+  // Lógica de Filtro no Cliente
   useEffect(() => {
-    // Aplicar filtro no cliente para respostas rápidas
     let result = requests.slice();
+    
     if (statusFilter !== 'ALL') {
       result = result.filter((r) => r.status === statusFilter);
     }
+    
     if (debouncedQuery.trim() !== '') {
       const q = debouncedQuery.trim().toLowerCase();
       result = result.filter(
@@ -106,15 +111,18 @@ const RequestsPage = () => {
           (r.unit?.name || '').toLowerCase().includes(q)
       );
     }
+    
     if (startDate) {
       const sd = new Date(startDate);
       result = result.filter((r) => new Date(r.createdAt) >= sd);
     }
+    
     if (endDate) {
       const ed = new Date(endDate);
       ed.setHours(23, 59, 59, 999);
       result = result.filter((r) => new Date(r.createdAt) <= ed);
     }
+    
     setFilteredRequests(result);
   }, [requests, statusFilter, debouncedQuery, startDate, endDate]);
 
@@ -123,17 +131,12 @@ const RequestsPage = () => {
     newStatus: RequestStatus
   ) => {
     try {
-      const response = await fetch(
-        `http://localhost:3001/api/requests/${requestId}/status`,
-        {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ status: newStatus }),
-        }
-      );
+      // Substituído fetch por api
+      const response = await api(`/requests/${requestId}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: newStatus }),
+      });
+
       if (response.ok) {
         toast.success(`Status atualizado para ${newStatus}.`);
         fetchRequests();

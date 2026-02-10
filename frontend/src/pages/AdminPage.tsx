@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/select";
 import { Link, LoaderCircle, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { api } from "@/lib/api"; // <--- IMPORTAMOS NOSSA API INTELIGENTE
 
 import { EditUnitForm } from "@/components/forms/EditUnitForm";
 import { CreateUserForm } from "@/components/forms/CreateUserForm";
@@ -54,7 +55,7 @@ import { AssignUnitForm } from "@/components/forms/AssignUnitForm";
 interface Unit {
   id: string;
   name: string;
-  coordinatorId: string | null; // ✅ NÃO opcional (alinhado ao EditUnitForm e Prisma)
+  coordinatorId: string | null;
   coordinator: { name: string } | null;
 }
 
@@ -94,20 +95,17 @@ const AdminPage = () => {
   const [assigningInstructor, setAssigningInstructor] =
     useState<User | null>(null);
 
-  /* ===================== FETCH ===================== */
+  /* ===================== FETCH (ATUALIZADO) ===================== */
 
   const fetchData = async (showLoading = true) => {
-    if (!token) return;
+    // Agora não dependemos apenas do token, mas a api trata isso internamente
     if (showLoading) setIsLoading(true);
 
     try {
+      // Substituímos fetch por api e removemos o header manual de Authorization
       const [unitsRes, usersRes] = await Promise.all([
-        fetch("http://localhost:3001/api/units", {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch("http://localhost:3001/api/users", {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
+        api("/units"),
+        api("/users"),
       ]);
 
       if (unitsRes.ok && usersRes.ok) {
@@ -120,9 +118,12 @@ const AdminPage = () => {
           usersData.filter((u: User) => u.role === "COORDENADOR")
         );
       } else {
+        // Se der erro 401 ou 403, a api.ts pode já ter tratado, mas avisamos aqui
+        console.error("Erro ao buscar dados", unitsRes.status, usersRes.status);
         toast.error("Falha ao carregar dados de administração.");
       }
-    } catch {
+    } catch (error) {
+      console.error(error);
       toast.error("Erro de conexão com o servidor.");
     } finally {
       if (showLoading) setIsLoading(false);
@@ -131,7 +132,7 @@ const AdminPage = () => {
 
   useEffect(() => {
     fetchData();
-  }, [token]);
+  }, []); // Removemos a dependência do token, pois a api.ts busca do localStorage
 
   /* ===================== FILTROS DERIVADOS ===================== */
 
@@ -151,9 +152,6 @@ const AdminPage = () => {
 
       const matchRole = roleFilter === "ALL" || u.role === roleFilter;
 
-      // Determinar a unidade efetiva do usuário:
-      // - se o usuário já tem `u.unit` preenchido, usamos isso
-      // - caso contrário, para COORDENADOR, procuramos a unit cuja coordinatorId === u.id
       const effectiveUnitId = u.unit?.id || units.find((unit) => unit.coordinatorId === u.id)?.id;
       const matchUnit = unitFilter === "ALL" || effectiveUnitId === unitFilter;
 
@@ -161,7 +159,7 @@ const AdminPage = () => {
     });
   }, [users, userSearch, roleFilter, unitFilter]);
 
-  /* ===================== HANDLERS ===================== */
+  /* ===================== HANDLERS (ATUALIZADOS) ===================== */
 
   const handleUnitSuccess = async () => {
     toast.success("Unidade salva com sucesso!");
@@ -174,19 +172,17 @@ const AdminPage = () => {
     if (!deletingUnit) return;
 
     try {
-      const res = await fetch(
-        `http://localhost:3001/api/units/${deletingUnit.id}`,
-        {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      // DELETE com api
+      const res = await api(`/units/${deletingUnit.id}`, {
+        method: "DELETE",
+      });
 
       if (res.ok) {
         toast.success("Unidade excluída com sucesso!");
         await fetchData(false);
       } else {
-        toast.error("Falha ao excluir a unidade.");
+        const errorData = await res.json();
+        toast.error(errorData.message || "Falha ao excluir a unidade.");
       }
     } catch {
       toast.error("Erro de conexão.");
@@ -211,19 +207,17 @@ const AdminPage = () => {
     if (!deletingUser) return;
 
     try {
-      const res = await fetch(
-        `http://localhost:3001/api/users/${deletingUser.id}`,
-        {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      // DELETE com api
+      const res = await api(`/users/${deletingUser.id}`, {
+        method: "DELETE",
+      });
 
       if (res.ok) {
         toast.success("Usuário excluído com sucesso!");
         await fetchData(false);
       } else {
-        toast.error("Falha ao excluir o usuário.");
+        const errorData = await res.json();
+        toast.error(errorData.message || "Falha ao excluir o usuário.");
       }
     } catch {
       toast.error("Erro de conexão.");
