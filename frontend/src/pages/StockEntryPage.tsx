@@ -80,7 +80,7 @@ const StockEntryPage = () => {
             // Substituído fetch por api
             const [suppliersRes, itemsRes] = await Promise.all([
                 api("/suppliers"),
-                api("/items"),
+                api("/items?all=true"),
             ]);
 
             if (suppliersRes.ok && itemsRes.ok) {
