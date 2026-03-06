@@ -191,6 +191,110 @@ router.get('/', authMiddleware, async (req: AuthenticatedRequest, res: Response)
 });
 
 // =====================================
+// ADICIONAR ITEM AO INVENTÁRIO DA UNIDADE (Diretor)
+// =====================================
+router.post('/:id/items', authMiddleware, directorOnly, async (req: AuthenticatedRequest, res: Response) => {
+  const { id: unitId } = req.params;
+  const { name, internalCode, unitOfMeasure, description, quantity } = req.body;
+  const companyId = req.user?.companyId;
+
+  if (!companyId) {
+    return res.status(400).json({ message: 'Empresa não selecionada.' });
+  }
+
+  if (!name || !name.trim()) {
+    return res.status(400).json({ message: 'O nome do item é obrigatório.' });
+  }
+
+  try {
+    const unit = await prisma.unit.findUnique({ where: { id: unitId } });
+    if (!unit) {
+      return res.status(404).json({ message: 'Unidade não encontrada.' });
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      // Busca ou cria o item no catálogo central (unique por name+companyId)
+      let item = await tx.item.findUnique({
+        where: { name_companyId: { name: name.trim(), companyId } },
+      });
+      if (!item) {
+        item = await tx.item.create({
+          data: {
+            name: name.trim(),
+            internalCode: internalCode || null,
+            unitOfMeasure: unitOfMeasure || null,
+            description: description || null,
+            quantity: 0,
+            companyId,
+          },
+        });
+      }
+
+      const qty = Math.max(0, Number(quantity) || 0);
+
+      // Cria ou atualiza o UnitItem
+      const unitItem = await tx.unitItem.upsert({
+        where: { unitId_itemId: { unitId, itemId: item.id } },
+        create: { unitId, itemId: item.id, quantity: qty },
+        update: { quantity: { increment: qty } },
+        include: { item: true, unit: true },
+      });
+
+      return unitItem;
+    });
+
+    res.status(201).json(result);
+  } catch (error: any) {
+    console.error('Erro ao adicionar item à unidade:', error);
+    res.status(500).json({ message: error.message || 'Erro ao adicionar item à unidade.' });
+  }
+});
+
+// =====================================
+// EDITAR ITEM DO INVENTÁRIO DA UNIDADE (Diretor)
+// =====================================
+router.put('/:id/items/:unitItemId', authMiddleware, directorOnly, async (req: AuthenticatedRequest, res: Response) => {
+  const { unitItemId } = req.params;
+  const { quantity } = req.body;
+
+  if (quantity === undefined || quantity === null) {
+    return res.status(400).json({ message: 'A quantidade é obrigatória.' });
+  }
+
+  try {
+    const updated = await prisma.unitItem.update({
+      where: { id: unitItemId },
+      data: { quantity: Math.max(0, Number(quantity)) },
+      include: { item: true, unit: true },
+    });
+    res.status(200).json(updated);
+  } catch (error: any) {
+    console.error('Erro ao editar item da unidade:', error);
+    res.status(500).json({ message: 'Erro ao editar item da unidade.' });
+  }
+});
+
+// =====================================
+// DELETAR ITEM DO INVENTÁRIO DA UNIDADE (Diretor)
+// =====================================
+router.delete('/:id/items/:unitItemId', authMiddleware, directorOnly, async (req: AuthenticatedRequest, res: Response) => {
+  const { unitItemId } = req.params;
+
+  try {
+    const unitItem = await prisma.unitItem.findUnique({ where: { id: unitItemId }, include: { item: true } });
+    if (!unitItem) {
+      return res.status(404).json({ message: 'Item não encontrado no inventário.' });
+    }
+
+    await prisma.unitItem.delete({ where: { id: unitItemId } });
+    res.status(204).send();
+  } catch (error: any) {
+    console.error('Erro ao remover item da unidade:', error);
+    res.status(500).json({ message: 'Erro ao remover item da unidade.' });
+  }
+});
+
+// =====================================
 // BUSCAR UMA UNIDADE ESPECÍFICA
 // =====================================
 router.get('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {

@@ -6,13 +6,21 @@ const router = Router();
 const prisma = new PrismaClient();
 
 // Rota para LISTAR todos os itens do Estoque Central: GET /api/items
+// Use ?all=true para listar todos os itens do catálogo (inclusive com qty 0)
 router.get('/', authMiddleware, async (req: AuthenticatedRequest, res) => {
   try {
     const companyId = req.user?.companyId;
     if (!companyId) return res.status(400).json({ message: "Empresa não informada." });
 
+    const showAll = req.query.all === 'true';
+
+    const where: any = { companyId };
+    if (!showAll) {
+      where.quantity = { gt: 0 };
+    }
+
     const items = await prisma.item.findMany({
-      where: { companyId }, // Filtra por empresa
+      where,
       orderBy: { name: 'asc' },
     });
     res.status(200).json(items);

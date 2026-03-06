@@ -4,12 +4,24 @@ import { AppSidebar } from '@/components/AppSidebar';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { LoaderCircle } from 'lucide-react';
+import { Eye, LoaderCircle, Pencil, Trash2 } from 'lucide-react';
 import { useAuth } from '@/contexts/auth.context';
 import { toast } from 'sonner';
 import { AddRequestForm } from '@/components/forms/AddRequestForm';
+import { AddUnitItemForm } from '@/components/forms/AddUnitItemForm';
+import { EditUnitItemForm } from '@/components/forms/EditUnitItemForm';
 import { exportToExcel, exportToPDF } from '@/utils/exportUtils';
 import { FileDown, FileSpreadsheet, Download } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,6 +37,8 @@ interface InventoryItem {
     id: string;
     name: string;
     description: string | null;
+    internalCode: string | null;
+    unitOfMeasure: string | null;
     updatedAt: string;
   };
 }
@@ -43,6 +57,10 @@ const InventoryDetails = () => {
   const [unit, setUnit] = useState<Unit | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+  const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false);
+  const [viewingItem, setViewingItem] = useState<InventoryItem | null>(null);
+  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [deletingItem, setDeletingItem] = useState<InventoryItem | null>(null);
 
   const fetchInventoryData = async () => {
     if (!unitId) return;
@@ -71,7 +89,37 @@ const InventoryDetails = () => {
   const handleRequestSuccess = () => {
     setIsRequestModalOpen(false);
     toast.success("Solicitação criada com sucesso!");
-    fetchInventoryData(); // Recarrega os dados após sucesso
+    fetchInventoryData();
+  };
+
+  const handleAddItemSuccess = () => {
+    setIsAddItemModalOpen(false);
+    toast.success("Item adicionado ao inventário com sucesso!");
+    fetchInventoryData();
+  };
+
+  const handleEditSuccess = () => {
+    setEditingItem(null);
+    toast.success("Quantidade atualizada com sucesso!");
+    fetchInventoryData();
+  };
+
+  const handleDeleteItem = async () => {
+    if (!deletingItem || !unitId) return;
+    try {
+      const response = await api(`/units/${unitId}/items/${deletingItem.id}`, { method: 'DELETE' });
+      if (response.ok) {
+        toast.success(`Item "${deletingItem.item.name}" removido do inventário.`);
+        fetchInventoryData();
+      } else {
+        const data = await response.json();
+        toast.error(data.message || 'Falha ao remover o item.');
+      }
+    } catch {
+      toast.error('Erro de conexão ao tentar remover o item.');
+    } finally {
+      setDeletingItem(null);
+    }
   };
 
   if (isLoading) {
@@ -149,6 +197,20 @@ const InventoryDetails = () => {
 
             {isDirector && (
               <div className="flex gap-2">
+                <Dialog open={isAddItemModalOpen} onOpenChange={setIsAddItemModalOpen}>
+                  <DialogTrigger asChild>
+                    <Button>Adicionar Item</Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader><DialogTitle>Adicionar Item ao Inventário de {unit.name}</DialogTitle></DialogHeader>
+                    <AddUnitItemForm
+                      unitId={unit.id}
+                      onItemAdded={handleAddItemSuccess}
+                      onCancel={() => setIsAddItemModalOpen(false)}
+                    />
+                  </DialogContent>
+                </Dialog>
+
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" size="sm">
@@ -177,6 +239,7 @@ const InventoryDetails = () => {
                     <TableHead className="text-secondary-foreground">Nome do Item</TableHead>
                     <TableHead className="text-secondary-foreground">Quantidade na Unidade</TableHead>
                     <TableHead className="text-secondary-foreground">Última Atualização (Item Mestre)</TableHead>
+                    {isDirector && <TableHead className="text-secondary-foreground text-right">Ações</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -188,10 +251,25 @@ const InventoryDetails = () => {
                         <TableCell className="text-foreground">
                           {new Date(inventoryItem.item.updatedAt).toLocaleDateString('pt-BR')}
                         </TableCell>
+                        {isDirector && (
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-1">
+                              <Button variant="ghost" size="icon" onClick={() => setViewingItem(inventoryItem)} title="Ver detalhes">
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" onClick={() => setEditingItem(inventoryItem)} title="Editar quantidade">
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" onClick={() => setDeletingItem(inventoryItem)} title="Remover item">
+                                <Trash2 className="w-4 h-4 text-red-400" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))
                   ) : (
-                    <TableRow><TableCell colSpan={3} className="text-center text-muted-foreground h-24">Nenhum item no inventário desta unidade.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={isDirector ? 4 : 3} className="text-center text-muted-foreground h-24">Nenhum item no inventário desta unidade.</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
@@ -199,6 +277,58 @@ const InventoryDetails = () => {
           </section>
         </div>
       </main>
+
+      {/* VISUALIZAR DETALHES */}
+      {viewingItem && (
+        <Dialog open={!!viewingItem} onOpenChange={(open) => !open && setViewingItem(null)}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Detalhes: {viewingItem.item.name}</DialogTitle></DialogHeader>
+            <div className="space-y-3 text-sm">
+              <div><strong>Nome:</strong> {viewingItem.item.name}</div>
+              <div><strong>Quantidade na Unidade:</strong> {viewingItem.quantity}</div>
+              {viewingItem.item.internalCode && <div><strong>Código Interno/SKU:</strong> {viewingItem.item.internalCode}</div>}
+              {viewingItem.item.unitOfMeasure && <div><strong>Unidade de Medida:</strong> {viewingItem.item.unitOfMeasure}</div>}
+              {viewingItem.item.description && <div><strong>Descrição:</strong> {viewingItem.item.description}</div>}
+              <div><strong>Última Atualização:</strong> {new Date(viewingItem.item.updatedAt).toLocaleString('pt-BR')}</div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* EDITAR QUANTIDADE */}
+      {editingItem && unitId && (
+        <Dialog open={!!editingItem} onOpenChange={(open) => !open && setEditingItem(null)}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Editar Item</DialogTitle></DialogHeader>
+            <EditUnitItemForm
+              unitId={unitId}
+              unitItemId={editingItem.id}
+              itemName={editingItem.item.name}
+              currentQuantity={editingItem.quantity}
+              onSuccess={handleEditSuccess}
+              onCancel={() => setEditingItem(null)}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* CONFIRMAR EXCLUSÃO */}
+      <AlertDialog open={!!deletingItem} onOpenChange={(open) => !open && setDeletingItem(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. O item <strong>{deletingItem?.item.name}</strong> será removido do inventário desta unidade.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteItem} className="bg-red-600 hover:bg-red-700 text-white">
+              Confirmar Exclusão
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
