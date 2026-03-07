@@ -127,6 +127,7 @@ export const CreateUserForm = ({ creatorRole, onSuccess, onCancel }: CreateUserF
               <>
                 <SelectItem value="COORDENADOR">Coordenador</SelectItem>
                 <SelectItem value="INSTRUTOR">Instrutor</SelectItem>
+                <SelectItem value="AUDITOR">Auditor</SelectItem>
               </>
             )}
             {creatorRole === 'COORDENADOR' && (

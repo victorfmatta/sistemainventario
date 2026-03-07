@@ -10,7 +10,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { LoaderCircle, FileText } from "lucide-react";
+import { LoaderCircle, FileText, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
@@ -19,6 +19,16 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { api } from "@/lib/api"; // <--- IMPORTANTE
 
 interface StockEntry {
@@ -50,6 +60,8 @@ const StockHistoryPage = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [selectedEntry, setSelectedEntry] = useState<StockEntryDetail | null>(null);
     const [isDetailLoading, setIsDetailLoading] = useState(false);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
     const fetchEntries = async () => {
         setIsLoading(true);
@@ -86,6 +98,24 @@ const StockHistoryPage = () => {
             setIsDetailLoading(false);
         }
     }
+
+    const handleDelete = async (id: string) => {
+        setDeletingId(id);
+        try {
+            const res = await api(`/stock-entries/${id}`, { method: "DELETE" });
+            if (res.ok) {
+                toast.success("Entrada excluída.");
+                if (selectedEntry?.id === id) setSelectedEntry(null);
+                fetchEntries();
+            } else {
+                toast.error("Erro ao excluir entrada.");
+            }
+        } catch {
+            toast.error("Erro de conexão ao excluir.");
+        } finally {
+            setDeletingId(null);
+        }
+    };
 
     useEffect(() => {
         fetchEntries();
@@ -147,19 +177,35 @@ const StockHistoryPage = () => {
                                                 {entry._count.items}
                                             </TableCell>
                                             <TableCell className="text-right">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => handleViewDetails(entry.id)}
-                                                    className="hover:bg-white/10 text-brand-cyan hover:text-brand-cyan"
-                                                >
-                                                    {isDetailLoading && selectedEntry?.id === entry.id ? (
-                                                         <LoaderCircle className="w-4 h-4 mr-2 animate-spin" />
-                                                    ) : (
-                                                         <FileText className="w-4 h-4 mr-2" />
-                                                    )}
-                                                    Detalhes
-                                                </Button>
+                                                <div className="flex justify-end gap-2">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => handleViewDetails(entry.id)}
+                                                        className="hover:bg-white/10 text-brand-cyan hover:text-brand-cyan"
+                                                    >
+                                                        {isDetailLoading && selectedEntry?.id === entry.id ? (
+                                                             <LoaderCircle className="w-4 h-4 mr-2 animate-spin" />
+                                                        ) : (
+                                                             <FileText className="w-4 h-4 mr-2" />
+                                                        )}
+                                                        Detalhes
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => setConfirmDeleteId(entry.id)}
+                                                        disabled={deletingId === entry.id}
+                                                        className="hover:bg-red-500/20 text-red-300 hover:text-red-200"
+                                                    >
+                                                        {deletingId === entry.id ? (
+                                                            <LoaderCircle className="w-4 h-4 mr-2 animate-spin" />
+                                                        ) : (
+                                                            <Trash2 className="w-4 h-4 mr-2" />
+                                                        )}
+                                                        Excluir
+                                                    </Button>
+                                                </div>
                                             </TableCell>
                                         </TableRow>
                                     ))
@@ -169,6 +215,26 @@ const StockHistoryPage = () => {
                     </div>
                 </div>
             </main>
+
+            <AlertDialog open={!!confirmDeleteId} onOpenChange={(open) => !open && setConfirmDeleteId(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Esta ação não pode ser desfeita. A entrada será removida e as quantidades serão estornadas do estoque.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => { handleDelete(confirmDeleteId!); setConfirmDeleteId(null); }}
+                            className="bg-red-600 hover:bg-red-700 text-white"
+                        >
+                            Confirmar Exclusão
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
             <Dialog open={!!selectedEntry} onOpenChange={(open) => !open && setSelectedEntry(null)}>
                 <DialogContent className="max-w-3xl bg-background border-brand-blue/30">

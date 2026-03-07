@@ -228,8 +228,8 @@ const AdminPage = () => {
 
   /* ===================== GUARDAS ===================== */
 
-  if (!user || (user.role !== "DIRETOR" && user.role !== "COORDENADOR")) {
-    return <Navigate to="/dashboard" />;
+  if (!user || (user.role !== "DIRETOR" && user.role !== "COORDENADOR" && user.role !== "AUDITOR")) {
+    return <Navigate to="/my-units" />;
   }
 
   if (isLoading) {
@@ -321,6 +321,7 @@ const AdminPage = () => {
                               </Button>
                             </>
                           )}
+                          {user.role === "AUDITOR" && <span className="text-xs text-white/30">Somente leitura</span>}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -347,6 +348,7 @@ const AdminPage = () => {
                     <SelectItem value="DIRETOR">Diretor</SelectItem>
                     <SelectItem value="COORDENADOR">Coordenador</SelectItem>
                     <SelectItem value="INSTRUTOR">Instrutor</SelectItem>
+                    <SelectItem value="AUDITOR">Auditor</SelectItem>
                   </SelectContent>
                 </Select>
 
@@ -364,9 +366,11 @@ const AdminPage = () => {
                   </SelectContent>
                 </Select>
 
-                <Button onClick={() => setIsUserModalOpen(true)}>
-                  + Novo Usuário
-                </Button>
+                {user.role !== "AUDITOR" && (
+                  <Button onClick={() => setIsUserModalOpen(true)}>
+                    + Novo Usuário
+                  </Button>
+                )}
               </div>
 
               <div className="rounded-xl border border-brand-blue/30 bg-brand-blue/40 backdrop-blur-md overflow-hidden">
@@ -418,7 +422,7 @@ const AdminPage = () => {
                               <Link className="w-4 h-4 text-blue-400" />
                             </Button>
                           )}
-                          {u.id !== user.id && (
+                          {user.role !== "AUDITOR" && u.id !== user.id && (
                             <Button
                               variant="ghost"
                               size="icon"
@@ -427,6 +431,7 @@ const AdminPage = () => {
                               <Trash2 className="w-4 h-4 text-red-400" />
                             </Button>
                           )}
+                          {user.role === "AUDITOR" && <span className="text-xs text-white/30">Somente leitura</span>}
                         </TableCell>
                       </TableRow>
                     ))}
