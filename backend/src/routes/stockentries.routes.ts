@@ -138,4 +138,41 @@ router.get('/:id', authMiddleware, directorOnly, async (req, res) => {
     }
 });
 
+// =====================================
+// EXCLUIR ENTRADA
+// =====================================
+router.delete('/:id', authMiddleware, directorOnly, async (req: AuthenticatedRequest, res) => {
+    const { id } = req.params;
+    const companyId = req.user?.companyId;
+    if (!companyId) return res.status(400).json({ message: "Empresa não informada." });
+
+    try {
+        const entry = await prisma.stockEntry.findUnique({
+            where: { id },
+            include: { items: true },
+        });
+
+        if (!entry || entry.companyId !== companyId) {
+            return res.status(404).json({ message: 'Entrada não encontrada.' });
+        }
+
+        await prisma.$transaction(async (tx) => {
+            // Decrementa o saldo dos itens relacionados
+            for (const item of entry.items) {
+                const current = await tx.item.findUnique({ where: { id: item.itemId }, select: { quantity: true } });
+                const newQty = Math.max(0, (current?.quantity || 0) - item.quantity);
+                await tx.item.update({ where: { id: item.itemId }, data: { quantity: newQty } });
+            }
+
+            // Exclui a entrada (itens são removidos por cascata)
+            await tx.stockEntry.delete({ where: { id } });
+        });
+
+        return res.json({ message: 'Entrada removida com sucesso.' });
+    } catch (error) {
+        console.error('Erro ao excluir entrada:', error);
+        return res.status(500).json({ message: 'Erro ao excluir entrada.' });
+    }
+});
+
 export default router;

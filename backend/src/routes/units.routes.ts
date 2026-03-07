@@ -141,6 +141,7 @@ router.get('/', authMiddleware, async (req: AuthenticatedRequest, res: Response)
         companyId: companyId 
     };
 
+    // DIRETOR e AUDITOR vêem todas as unidades da empresa (whereClause não muda)
     if (role === 'COORDENADOR') {
       whereClause = { ...whereClause, coordinatorId: userId };
     }

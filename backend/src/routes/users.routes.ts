@@ -15,6 +15,15 @@ const canManageUsers = (req: AuthenticatedRequest, res: any, next: any) => {
   next();
 };
 
+// Middleware de leitura: Diretor, Coordenador e Auditor podem listar usuários
+const canViewUsers = (req: AuthenticatedRequest, res: any, next: any) => {
+  const role = req.user?.role;
+  if (role !== 'DIRETOR' && role !== 'COORDENADOR' && role !== 'AUDITOR') {
+    return res.status(403).json({ message: 'Acesso negado.' });
+  }
+  next();
+};
+
 // Middleware específico para Diretores
 const directorOnly = (req: AuthenticatedRequest, res: any, next: any) => {
     if (req.user?.role !== 'DIRETOR') {
@@ -24,12 +33,16 @@ const directorOnly = (req: AuthenticatedRequest, res: any, next: any) => {
 };
 
 // Rota para LISTAR usuários
-router.get('/', authMiddleware, canManageUsers, async (req: AuthenticatedRequest, res) => {
+router.get('/', authMiddleware, canViewUsers, async (req: AuthenticatedRequest, res) => {
   try {
     const { userId, role } = req.user!;
     let whereClause: Prisma.UserWhereInput = {};
 
-    if (role === 'COORDENADOR') {
+    if (role === 'AUDITOR') {
+      // Auditor vê todos os usuários, sem filtro extra
+    } else if (role === 'AUDITOR') {
+      // Auditor vê todos os usuários, sem filtro extra
+    } else if (role === 'COORDENADOR') {
       const managedUnits = await prisma.unit.findMany({
         where: { coordinatorId: userId },
         select: { id: true },
@@ -75,7 +88,7 @@ router.post('/', authMiddleware, canManageUsers, async (req: AuthenticatedReques
   if (creatorRole === 'COORDENADOR' && roleToCreate !== 'INSTRUTOR') {
     return res.status(403).json({ message: 'Coordenadores podem criar apenas usuários do tipo Instrutor.' });
   }
-  if (creatorRole === 'DIRETOR' && (roleToCreate !== 'COORDENADOR' && roleToCreate !== 'INSTRUTOR')) {
+  if (creatorRole === 'DIRETOR' && !['COORDENADOR', 'INSTRUTOR', 'AUDITOR'].includes(roleToCreate)) {
     return res.status(400).json({ message: 'Cargo inválido.' });
   }
 
