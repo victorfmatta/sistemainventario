@@ -29,7 +29,7 @@ const navigationItems = [
     title: "Minhas Unidades",
     url: "/my-units",
     icon: Building2,
-    roles: ["DIRETOR", "COORDENADOR", "INSTRUTOR"],
+    roles: ["DIRETOR", "COORDENADOR", "INSTRUTOR", "AUDITOR"],
   },
   {
     title: "Solicitações",
@@ -47,7 +47,7 @@ const navigationItems = [
     title: "Administração",
     url: "/admin",
     icon: Shield,
-    roles: ["DIRETOR", "COORDENADOR"],
+    roles: ["DIRETOR", "COORDENADOR", "AUDITOR"],
   },
   {
     title: "Fornecedores",
