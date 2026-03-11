@@ -7,6 +7,7 @@ import requestsRoutes from './routes/requests.routes';
 import usersRoutes from './routes/users.routes';
 import suppliersRoutes from './routes/suppliers.routes';
 import stockEntriesRoutes from './routes/stockentries.routes';
+import stockExitsRoutes from './routes/stockexits.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 
 const app = express();
@@ -23,6 +24,7 @@ app.use('/api/requests', requestsRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/suppliers', suppliersRoutes);
 app.use('/api/stock-entries', stockEntriesRoutes);
+app.use('/api/stock-exits', stockExitsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
 app.listen(PORT, () => {

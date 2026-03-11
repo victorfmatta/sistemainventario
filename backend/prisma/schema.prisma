@@ -23,6 +23,7 @@ model Company {
   items        Item[]
   suppliers    Supplier[]
   stockEntries StockEntry[]
+  stockExits   StockExit[]
   requests     Request[] // Solicitações pertencentes a esta empresa
 
   // Histórico de transferências (Origem e Destino)
@@ -53,6 +54,7 @@ model User {
 
   createdUsers User[]       @relation("CreatedUsers")
   stockEntries StockEntry[]
+  stockExits   StockExit[]
   
   // Registro de transferências feitas por este usuário (Diretor)
   transfersMade CompanyTransfer[]
@@ -75,6 +77,7 @@ model Unit {
 
   inventoryItems UnitItem[]
   requests       Request[]
+  stockExits     StockExit[]
 
   // Nome da unidade deve ser único apenas DENTRO da empresa
   @@unique([name, companyId])
@@ -97,6 +100,7 @@ model Item {
   requests        Request[]
   unitItems       UnitItem[]
   stockEntryItems StockEntryItem[]
+  stockExitItems  StockExitItem[]
 
   // Nome do item deve ser único apenas DENTRO da empresa
   @@unique([name, companyId])
@@ -194,6 +198,40 @@ model Request {
 
   requestedById String
   requestedBy   User   @relation(fields: [requestedById], references: [id], onDelete: Cascade)
+}
+
+// --- NOVO MODEL: Saída de Estoque (Perda, Roubo, etc.) ---
+model StockExit {
+  id          String   @id @default(cuid())
+  reason      String   // ROUBO, PERDA, AVARIA, OUTRO
+  description String?  // Descrição adicional
+  target      String   // CENTRAL ou UNIT
+  exitDate    DateTime @default(now())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  unitId String?
+  unit   Unit?   @relation(fields: [unitId], references: [id], onDelete: SetNull)
+
+  registeredById String
+  registeredBy   User @relation(fields: [registeredById], references: [id])
+
+  items StockExitItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model StockExitItem {
+  id       String @id @default(cuid())
+  quantity Int
+
+  stockExitId String
+  stockExit   StockExit @relation(fields: [stockExitId], references: [id], onDelete: Cascade)
+
+  itemId String
+  item   Item @relation(fields: [itemId], references: [id])
 }
 
 // --- NOVO MODEL: Histórico de Transferências entre Empresas ---
